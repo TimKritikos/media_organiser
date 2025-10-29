@@ -4,10 +4,11 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 import subprocess
+import argparse
 
 
 class MediaSelectorApp:
-    def __init__(self, master, root_dir):
+    def __init__(self, master, card_data, card_dir, media_dir, root_dir):
         self.master = master
         self.master.title("Media Selector")
         self.root_dir = root_dir
@@ -16,9 +17,9 @@ class MediaSelectorApp:
         self.files = []        # list of file objects from JSON
         self.thumbnails = []   # persistent references to PhotoImage objects
 
-        # Load JSON
-        data = json.loads(subprocess.check_output(['cat', '/home/user/hmm/info.json']))
-        self.files = data.get("files", [])
+        for i in card_data:
+            self.files.append(media_dir+"/"+card_dir+"/"+i)
+            #self.files.append(media_dir+"/"+card_dir+"/"+i["filename"])
 
         # Layout: main frame
         self.main_frame = tk.Frame(master)
@@ -81,7 +82,7 @@ class MediaSelectorApp:
         self.thumbnails = []
 
         for idx, file_obj in enumerate(self.files):
-            filepath = file_obj.get("filename_here")
+            filepath = file_obj#.get("filename_here")
             if not filepath or not os.path.exists(filepath):
                 continue
 
@@ -89,7 +90,7 @@ class MediaSelectorApp:
             col = idx % cols
 
             ext = os.path.splitext(filepath)[1].lower()
-            is_image = ext in [".jpg", ".jpeg", ".png", ".gif", ".bmp"]
+            is_image = ext in [".jpg", ".thm", ".png", ".gif", ".bmp"]
 
             if is_image:
                 try:
@@ -162,24 +163,45 @@ def main():
     root = tk.Tk()
     root.geometry("1000x600")
 
-    #json_path = filedialog.askopenfilename(
-    #    title="Select JSON File",
-    #    filetypes=[("JSON Files", "*.json")]
-    #)
-    #if not json_path:
-    #    tk.messagebox.showwarning("No file selected", "No JSON file selected.")
-    #    root.destroy()
-    #    return
+    parser = argparse.ArgumentParser(description='Organise a card of a source_media dir')
+    parser.add_argument('card_dir', type=str, help='The directory of the card to be organised')
+    args = parser.parse_args()
+    if not os.path.isdir(args.card_dir):
+        print("ERROR: Provided card_dir doesn\'t exist")
+        return 1
+    media_dir=os.path.abspath(args.card_dir).split("/MEDIA/")[0]+"/MEDIA"
+    if not os.path.isdir(media_dir):
+        print("ERROR: Calculated media_dir doesn\'t exist")
+        return 1
+    card_dir=os.path.abspath(args.card_dir).split("/MEDIA/")[1]
+    if not os.path.isdir(media_dir+"/"+card_dir):
+        print("ERROR: Calculated card_dir is invalid")
+        return 1
+    source_media_dir=card_dir.split("/DATA/")[0]
+    if not os.path.isdir(media_dir+"/"+source_media_dir):
+        print("ERROR: Calculated source_media_dir is invalid")
+        return 1
+    card_id=card_dir.split("/DATA/")[1]
+    if not os.path.isdir(media_dir+"/"+source_media_dir+"/DATA/"+card_id) or not card_id:
+        print("ERROR: Calculated card id is invalid")
+        return 1
+    interface_executable_path=media_dir+"/"+source_media_dir+"/interface"
+    if not os.path.isfile(interface_executable_path):
+        print("ERROR: source media directory doesn't have an interface executable")
+        return 1
+    if not os.access(interface_executable_path, os.X_OK):
+        print("ERROR: source media directory has a file named interface but it's not executable")
+        return 1
 
-    root_dir = filedialog.askdirectory(
-        title="Select Root Directory for Directory Panel"
-    )
-    if not root_dir:
-        tk.messagebox.showwarning("No directory selected", "No root directory selected.")
-        root.destroy()
-        return
+    #print("media_dir="+media_dir+"\ncard_dir="+card_dir+"\nsource_media_dir="+source_media_dir+"\ncard_id="+card_id)
 
-    app = MediaSelectorApp(root, root_dir)
+    card_item_list = json.loads(subprocess.check_output([interface_executable_path, "-l", card_id]))
+    if card_item_list["api_version"].split('.')[0] != "v0" or (int)(card_item_list["api_version"].split('.')[1]) < 1:
+        print("ERROR invalid api version on source media interface")
+        return 1
+
+
+    app = MediaSelectorApp(root,card_item_list["file_list"],card_dir,media_dir, media_dir+"/organised/Efthymios Kritikos/") # TODO: don't hardcode this
     root.mainloop()
 
 
