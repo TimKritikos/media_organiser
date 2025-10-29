@@ -17,9 +17,9 @@ class MediaSelectorApp:
         self.files = []        # list of file objects from JSON
         self.thumbnails = []   # persistent references to PhotoImage objects
 
-        for i in card_data:
-            self.files.append(media_dir+"/"+card_dir+"/"+i)
-            #self.files.append(media_dir+"/"+card_dir+"/"+i["filename"])
+        self.files=card_data
+        self.media_dir=media_dir
+        self.card_dir=card_dir
 
         # Layout: main frame
         self.main_frame = tk.Frame(master)
@@ -82,17 +82,15 @@ class MediaSelectorApp:
         self.thumbnails = []
 
         for idx, file_obj in enumerate(self.files):
-            filepath = file_obj#.get("filename_here")
+            filepath = self.media_dir+"/"+self.card_dir+"/"+file_obj["filename"]
             if not filepath or not os.path.exists(filepath):
                 continue
 
             row = idx // cols
             col = idx % cols
 
-            ext = os.path.splitext(filepath)[1].lower()
-            is_image = ext in [".jpg", ".thm", ".png", ".gif", ".bmp"]
-
-            if is_image:
+            if file_obj["file_type"] in ["image-preview","image"]:
+                #File type is image
                 try:
                     img = Image.open(filepath).convert("RGB")
                     img.thumbnail(thumb_size)
@@ -196,7 +194,7 @@ def main():
     #print("media_dir="+media_dir+"\ncard_dir="+card_dir+"\nsource_media_dir="+source_media_dir+"\ncard_id="+card_id)
 
     card_item_list = json.loads(subprocess.check_output([interface_executable_path, "-l", card_id]))
-    if card_item_list["api_version"].split('.')[0] != "v0" or (int)(card_item_list["api_version"].split('.')[1]) < 1:
+    if card_item_list["api_version"].split('.')[0] != "v1": #or (int)(card_item_list["api_version"].split('.')[1]) < 1:
         print("ERROR invalid api version on source media interface")
         return 1
 
