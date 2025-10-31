@@ -8,43 +8,35 @@ import argparse
 
 
 class MediaSelectorApp:
-    def __init__(self, master, card_data, card_dir, media_dir, root_dir):
+    def __init__(self, master, card_data, card_dir, media_dir, organised_dir):
         self.master = master
         self.master.title("Media Selector")
-        self.root_dir = root_dir
-
-        self.selected = set()  # set of selected file paths
-        self.files = []        # list of file objects from JSON
-        self.thumbnails = []   # persistent references to PhotoImage objects
-
-        self.files=card_data
-        self.media_dir=media_dir
-        self.card_dir=card_dir
+        self.organised_dir = organised_dir
+        self.selected_items = set()  # set of selected file paths
+        self.all_items = card_data   # list of file objects from JSON
+        self.media_dir = media_dir
+        self.card_dir = card_dir
 
         # Layout: main frame
         self.main_frame = tk.Frame(master)
         self.main_frame.pack(fill="both", expand=True)
 
-        # Left panel: grid of media
+        # Left panel: grid of items
         self.grid_frame = tk.Frame(self.main_frame)
         self.grid_frame.pack(side="left", fill="both", expand=True)
-
         self.canvas = tk.Canvas(self.grid_frame)
         self.scrollbar = tk.Scrollbar(self.grid_frame, orient="vertical", command=self.canvas.yview)
-        self.scrollable_frame = tk.Frame(self.canvas)
-
-        self.scrollable_frame.bind(
+        self.item_grid = tk.Frame(self.canvas)
+        self.item_grid.bind(
             "<Configure>",
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
-
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.create_window((0, 0), window=self.item_grid, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
-
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
 
-        # Right panel: directory listing
+        # Right panel: project listing
         self.dir_frame = tk.Frame(self.main_frame, width=400, bd=2, relief="sunken")
         self.dir_frame.pack(side="right", fill="y")
         self.dir_listbox = tk.Listbox(self.dir_frame)
@@ -61,29 +53,28 @@ class MediaSelectorApp:
         self.display_media()
 
     def load_directories(self):
-        """Populate the right panel with directories under root_dir."""
-        if not os.path.isdir(self.root_dir):
+        if not os.path.isdir(self.organised_dir):
+            print("ERROR: organised dir is invalid")
             return
-        dirs = [d for d in os.listdir(self.root_dir) if os.path.isdir(os.path.join(self.root_dir, d))]
+        dirs = [d for d in os.listdir(self.organised_dir) if os.path.isdir(os.path.join(self.organised_dir, d))]
         dirs.sort()
         for d in dirs:
             self.dir_listbox.insert(tk.END, d)
-        if self.dir_listbox.size() > 0:
-            self.dir_listbox.select_set(0)
 
     def display_media(self):
         """Display all media in a fixed 4-column grid."""
-        for widget in self.scrollable_frame.winfo_children():
+        for widget in self.item_grid.winfo_children():
             widget.destroy()
 
-        thumb_size = (180, 150)
+        thumb_size = (180, 180)
         cols = 4
 
         self.thumbnails = []
 
-        for idx, file_obj in enumerate(self.files):
+        for idx, file_obj in enumerate(self.all_items):
             filepath = self.media_dir+"/"+self.card_dir+"/"+file_obj["filename"]
             if not filepath or not os.path.exists(filepath):
+                print("ERROR: file in json from source media interface executable couldn't be found")
                 continue
 
             row = idx // cols
@@ -96,6 +87,7 @@ class MediaSelectorApp:
                     img.thumbnail(thumb_size)
                     photo = ImageTk.PhotoImage(img)
                 except Exception:
+                    #couldn't open or read the image file
                     img = Image.new("RGB", thumb_size, (100, 100, 100))
                     photo = ImageTk.PhotoImage(img)
             else:
@@ -106,7 +98,7 @@ class MediaSelectorApp:
             self.thumbnails.append(photo)  # persist reference
 
             # Frame for each media item
-            item_frame = tk.Frame(self.scrollable_frame, bd=2, relief="ridge")
+            item_frame = tk.Frame(self.item_grid, bd=2)
             item_frame.grid(row=row, column=col, padx=10, pady=10)
 
             label = tk.Label(item_frame, image=photo)
@@ -119,16 +111,16 @@ class MediaSelectorApp:
 
     def toggle_selection(self, filepath, frame):
         """Toggle selection highlight on click."""
-        if filepath in self.selected:
-            self.selected.remove(filepath)
+        if filepath in self.selected_items:
+            self.selected_items.remove(filepath)
             frame.config(bd=2, relief="ridge", bg="#FFFFFF")
         else:
-            self.selected.add(filepath)
+            self.selected_items.add(filepath)
             frame.config(bd=4, relief="solid", bg="#b3d9ff")
 
     def save_selections(self):
         """Save selected files and chosen directory to JSON."""
-        if not self.selected:
+        if not self.selected_items:
             messagebox.showinfo("No Selection", "No items selected.")
             return
 
@@ -143,12 +135,9 @@ class MediaSelectorApp:
         selection = self.dir_listbox.curselection()
         selected_dir = self.dir_listbox.get(selection[0]) if selection else None
 
-        # Save full objects corresponding to selected paths
-        #selected_objects = [f for f in self.files if f.get("filename_here") in self.selected]
-        
         data = {
                 "selected_directory": selected_dir,
-                "selected_files": [f for f in self.selected ]
+                "selected_files": [f for f in self.selected_items ]
         }
 
         with open(save_path, "w") as f:
@@ -162,8 +151,10 @@ def main():
     root.geometry("1000x600")
 
     parser = argparse.ArgumentParser(description='Organise a card of a source_media dir')
-    parser.add_argument('card_dir', type=str, help='The directory of the card to be organised')
+    parser.add_argument('card_dir', type=str, help='The directory of the card to be organised relative to the current working directory or an absolute path')
+
     args = parser.parse_args()
+
     if not os.path.isdir(args.card_dir):
         print("ERROR: Provided card_dir doesn\'t exist")
         return 1
