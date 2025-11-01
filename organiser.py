@@ -98,7 +98,7 @@ class MediaSelectorApp:
             self.thumbnails.append(photo)  # persist reference
 
             # Frame for each media item
-            item_frame = tk.Frame(self.item_grid, bd=2)
+            item_frame = tk.Frame(self.item_grid, bd=6)
             item_frame.grid(row=row, column=col, padx=10, pady=10)
 
             label = tk.Label(item_frame, image=photo)
@@ -107,16 +107,20 @@ class MediaSelectorApp:
             name_label.pack()
 
             # Click to select/deselect
-            label.bind("<Button-1>", lambda e, path=filepath, f=item_frame: self.toggle_selection(path, f))
+            label.bind("<Button-1>", lambda e, path=filepath, frame=item_frame,text=name_label,image=label: self.toggle_selection(path, frame,text,image))
 
-    def toggle_selection(self, filepath, frame):
+    def toggle_selection(self, filepath, frame, text,image):
         """Toggle selection highlight on click."""
         if filepath in self.selected_items:
             self.selected_items.remove(filepath)
-            frame.config(bd=2, relief="ridge", bg="#FFFFFF")
+            frame.config(bg=self.main_frame.cget('bg'))
+            text.config(bg=self.main_frame.cget('bg'))
+            image.config(bg=self.main_frame.cget('bg'))
         else:
             self.selected_items.add(filepath)
-            frame.config(bd=4, relief="solid", bg="#b3d9ff")
+            frame.config(bg="#5293fa")
+            text.config(bg="#5293fa")
+            image.config(bg="#5293fa")
 
     def save_selections(self):
         """Save selected files and chosen directory to JSON."""
