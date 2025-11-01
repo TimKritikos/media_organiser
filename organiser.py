@@ -6,6 +6,27 @@ from PIL import Image, ImageTk
 import subprocess
 import argparse
 
+class CountCallbackSet:
+    def __init__(self):
+        self.set=set()
+        self.callback=None
+    def add(self,item):
+        self.set.add(item)
+        self.update()
+    def remove(self,item):
+        self.set.remove(item)
+        self.update()
+    def __len__(self):
+        return len(self.set)
+    def __iter__(self):
+        return iter(self.set)
+
+    def update(self):
+        if self.callback != None:
+            self.callback(len(self.set))
+    def register_callback(self,callback):
+        self.callback=callback
+
 class item(tk.Frame):
     def __init__(self, root, item_data,media_dir,card_dir, selected_items, thumb_size,bg_color,select_color, **kwargs):
         super().__init__(root,**kwargs)
@@ -89,7 +110,7 @@ class MediaSelectorApp:
         self.root = root
         self.root.title("MEDIA organiser")
         self.organised_dir = organised_dir
-        self.selected_items = set()  # set of selected file paths
+        self.selected_items = CountCallbackSet()  # set of selected file paths
         self.all_items = card_data   # list of file objects from JSON
         self.media_dir = media_dir
         self.card_dir = card_dir
@@ -121,10 +142,12 @@ class MediaSelectorApp:
         self.select_all = tk.Button(self.toolbar, text="Select All", command=self.select_all)
         self.select_none = tk.Button(self.toolbar, text="Select None", command=self.select_none)
         self.select_invert = tk.Button(self.toolbar, text="Invert selections", command=self.select_invert)
+        self.item_count = tk.Label(self.toolbar, text="")
         self.save_button.pack(side=tk.LEFT,padx=(4,2),pady=2)
         self.select_all.pack(side=tk.LEFT,padx=2)
         self.select_none.pack(side=tk.LEFT,padx=2)
         self.select_invert.pack(side=tk.LEFT,padx=2)
+        self.item_count.pack(side=tk.RIGHT,padx=2)
 
         self.grid_frame.grid (row=0,column=0,sticky='nswe')
         self.dir_frame.grid  (row=0,column=1,rowspan=2,sticky='sn')
@@ -141,6 +164,10 @@ class MediaSelectorApp:
         # Display media grid
         self.display_media()
 
+        self.selected_items.register_callback(self.update_counter)
+        self.selected_items.update() # Write inital text on the counter label
+    def update_counter(self,count):
+        self.item_count.config(text="Item count: "+str(count))
     def select_all(self):
         for i in self.items:
             i.select()
