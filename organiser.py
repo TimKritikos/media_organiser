@@ -147,12 +147,15 @@ class MediaSelectorApp:
 
 
 def main():
+    version="v0.0-dev"
+
     root = tk.Tk()
     root.geometry("1000x600")
 
     parser = argparse.ArgumentParser(description='Organise a card of a source_media dir')
     parser.add_argument('card_dir', type=str, help='The directory of the card to be organised relative to the current working directory or an absolute path')
     parser.add_argument('organised_dir', type=str, help='The organised dir the contains project directories. Relative to the current working directory or an absolute path')
+    parser.add_argument('-v','--version', help='print the version of this program and exit successfully', action="version", version=version)
 
     args = parser.parse_args()
 
