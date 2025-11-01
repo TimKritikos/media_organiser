@@ -152,6 +152,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='Organise a card of a source_media dir')
     parser.add_argument('card_dir', type=str, help='The directory of the card to be organised relative to the current working directory or an absolute path')
+    parser.add_argument('organised_dir', type=str, help='The organised dir the contains project directories. Relative to the current working directory or an absolute path')
 
     args = parser.parse_args()
 
@@ -160,15 +161,19 @@ def main():
         return 1
     media_dir=os.path.abspath(args.card_dir).split("/MEDIA/")[0]+"/MEDIA"
     if not os.path.isdir(media_dir):
-        print("ERROR: Calculated media_dir doesn\'t exist")
+        print("ERROR: Calculated media_dir or card_dir doesn\'t exist")
         return 1
-    card_dir=os.path.abspath(args.card_dir).split("/MEDIA/")[1]
+    card_dir_absolute=os.path.abspath(args.card_dir)
+    if card_dir_absolute.find("/MEDIA/") == -1:
+        print("ERROR: card_dir doesn't not seem to be in MEDIA or is the root of MEDIA")
+        return 1
+    card_dir=card_dir_absolute.split("/MEDIA/")[1]
     if not os.path.isdir(media_dir+"/"+card_dir):
         print("ERROR: Calculated card_dir is invalid")
         return 1
     source_media_dir=card_dir.split("/DATA/")[0]
     if not os.path.isdir(media_dir+"/"+source_media_dir):
-        print("ERROR: Calculated source_media_dir is invalid")
+        print("ERROR: Calculated source_media_dir from card_dir is invalid")
         return 1
     card_id=card_dir.split("/DATA/")[1]
     if not os.path.isdir(media_dir+"/"+source_media_dir+"/DATA/"+card_id) or not card_id:
@@ -182,7 +187,27 @@ def main():
         print("ERROR: source media directory has a file named interface but it's not executable")
         return 1
 
-    #print("media_dir="+media_dir+"\ncard_dir="+card_dir+"\nsource_media_dir="+source_media_dir+"\ncard_id="+card_id)
+    if not os.path.isdir(args.organised_dir):
+        print("ERROR: Provided organised_dir doesn\'t exist")
+        return 1
+    organised_absolute_dir=os.path.abspath(args.organised_dir)
+    if organised_absolute_dir.find("/MEDIA/") == -1:
+        print("ERROR: organised_dir doesn't not seem to be in MEDIA or is the root of MEDIA")
+        return 1
+    if not os.path.isdir(organised_absolute_dir):
+        print("ERROR: Calculated organised dir doesn\'t exist")
+        return 1
+    organised_media_dir=organised_absolute_dir.split("/MEDIA/")[0]+"/MEDIA"
+    if not os.path.isdir(organised_media_dir) or not organised_media_dir:
+        print("ERROR: Calculated media_dir of organised dir doesn\'t exist")
+        return 1
+    if media_dir != organised_media_dir:
+        print("ERROR: Calculated media_dir of card_id doesn't match the calculated media_dir of the organised_dir")
+        return 1
+    organised_dir_sanitised=organised_absolute_dir.split("/MEDIA/")[1]
+    if not os.path.isdir(media_dir+"/"+organised_dir_sanitised):
+        print("ERROR: Calculated card_dir is invalid")
+        return 1
 
     card_item_list = json.loads(subprocess.check_output([interface_executable_path, "-l", card_id]))
     if card_item_list["api_version"].split('.')[0] != "v1": #or (int)(card_item_list["api_version"].split('.')[1]) < 1:
@@ -190,7 +215,7 @@ def main():
         return 1
 
 
-    app = MediaSelectorApp(root,card_item_list["file_list"],card_dir,media_dir, media_dir+"/organised/Efthymios Kritikos/") # TODO: don't hardcode this
+    app = MediaSelectorApp(root,card_item_list["file_list"],card_dir,media_dir, media_dir+"/"+organised_dir_sanitised)
     root.mainloop()
 
 
