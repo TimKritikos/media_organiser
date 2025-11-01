@@ -85,22 +85,17 @@ class item(tk.Frame):
 
 
 class MediaSelectorApp:
-    def __init__(self, master, card_data, card_dir, media_dir, organised_dir):
-        self.master = master
-        self.master.title("Media Selector")
+    def __init__(self, root, card_data, card_dir, media_dir, organised_dir):
+        self.root = root
+        self.root.title("MEDIA organiser")
         self.organised_dir = organised_dir
         self.selected_items = set()  # set of selected file paths
         self.all_items = card_data   # list of file objects from JSON
         self.media_dir = media_dir
         self.card_dir = card_dir
 
-        # Layout: main frame
-        self.main_frame = tk.Frame(master)
-        self.main_frame.pack(fill="both", expand=True)
-
         # Left panel: grid of items
-        self.grid_frame = tk.Frame(self.main_frame)
-        self.grid_frame.pack(side="left", fill="both", expand=True)
+        self.grid_frame = tk.Frame(root)
         self.canvas = tk.Canvas(self.grid_frame)
         self.scrollbar = tk.Scrollbar(self.grid_frame, orient="vertical", command=self.canvas.yview)
         self.item_grid = tk.Frame(self.canvas)
@@ -114,22 +109,51 @@ class MediaSelectorApp:
         self.scrollbar.pack(side="right", fill="y")
 
         # Right panel: project listing
-        self.dir_frame = tk.Frame(self.main_frame, width=400, bd=2, relief="sunken")
-        self.dir_frame.pack(side="right", fill="y")
+        self.dir_frame = tk.Frame(root, width=400, bd=2, relief="sunken")
         self.dir_listbox = tk.Listbox(self.dir_frame)
         self.dir_listbox.pack(fill="both", expand=True)
 
+
         # Save button
-        self.save_button = tk.Button(master, text="Save Selections", command=self.save_selections)
-        self.save_button.pack(pady=5)
+        self.toolbar=tk.Frame(root, bd=3)
+        self.toolbar.config(relief="groove")
+        self.save_button = tk.Button(self.toolbar, text="Save Selections", command=self.save_selections)
+        self.select_all = tk.Button(self.toolbar, text="Select All", command=self.select_all)
+        self.select_none = tk.Button(self.toolbar, text="Select None", command=self.select_none)
+        self.select_invert = tk.Button(self.toolbar, text="Invert selections", command=self.select_invert)
+        self.save_button.pack(side=tk.LEFT,padx=(4,2),pady=2)
+        self.select_all.pack(side=tk.LEFT,padx=2)
+        self.select_none.pack(side=tk.LEFT,padx=2)
+        self.select_invert.pack(side=tk.LEFT,padx=2)
+
+        self.grid_frame.grid (row=0,column=0,sticky='nswe')
+        self.dir_frame.grid  (row=0,column=1,rowspan=2,sticky='sn')
+        self.toolbar.grid(row=1,column=0,sticky='we')
+        self.root.grid_rowconfigure(0, weight=1)
+        self.root.grid_columnconfigure(0, weight=1)
 
         self.dragged_over = set()
+        self.items=[]
 
         # Load directories into listbox
         self.load_directories()
 
         # Display media grid
         self.display_media()
+
+    def select_all(self):
+        for i in self.items:
+            i.select()
+    def select_none(self):
+        for i in self.items:
+            if i.get_filename_path() in self.selected_items:
+                i.deselect()
+    def select_invert(self):
+        for i in self.items:
+            if i.get_filename_path() in self.selected_items:
+                i.deselect()
+            else:
+                i.select()
 
     def load_directories(self):
         if not os.path.isdir(self.organised_dir):
@@ -156,8 +180,9 @@ class MediaSelectorApp:
             row = idx // cols
             col = idx % cols
 
-            additional_item = item(self.item_grid, file_obj,self.media_dir,self.card_dir, self.selected_items, thumb_size ,self.main_frame.cget('bg'),"#5293fa", bd=6)
+            additional_item = item(self.item_grid, file_obj,self.media_dir,self.card_dir, self.selected_items, thumb_size ,self.root.cget('bg'),"#5293fa", bd=6)
             additional_item.grid(row=row, column=col, padx=10, pady=10)
+            self.items.append(additional_item)
 
 
     def save_selections(self):
