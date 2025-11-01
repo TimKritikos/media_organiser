@@ -6,6 +6,81 @@ from PIL import Image, ImageTk
 import subprocess
 import argparse
 
+class item(tk.Frame):
+    def __init__(self, root, item_data,media_dir,card_dir, selected_items, thumb_size,bg_color,select_color, **kwargs):
+        super().__init__(root,**kwargs)
+
+        self.filename_path=media_dir+"/"+card_dir+"/"+item_data["filename"]
+        if not self.filename_path or not os.path.exists(self.filename_path):
+            print("ERROR: file in json from source media interface executable couldn't be found")
+            return -1
+
+        if item_data["file_type"] in ["image-preview","image"]:
+            #File type is image
+            try:
+                img = Image.open(self.filename_path).convert("RGB")
+                img.thumbnail(thumb_size)
+                self.photo_obj = ImageTk.PhotoImage(img)
+            except Exception:
+                #couldn't open or read the image file
+                img = Image.new("RGB", thumb_size, (100, 100, 100))
+                self.photo_obj = ImageTk.PhotoImage(img)
+        else:
+            # Video placeholder
+            img = Image.new("RGB", thumb_size, (60, 60, 60))
+            self.photo_obj = ImageTk.PhotoImage(img)
+
+
+        self.image = tk.Label(self, image=self.photo_obj)
+        self.image.pack()
+        self.caption = tk.Label(self, text=os.path.basename(self.filename_path), wraplength=140)
+        self.caption.pack()
+
+        for i in (self.image, self.caption, self):
+            i.bind("<Button-1>", self.on_click)
+            i.bind("<B1-Motion>",self.on_drag)
+
+        self.selected_items=selected_items
+        self.dragged_over=set()
+
+        self.bg_color=bg_color
+        self.select_color=select_color
+
+    def deselect(self):
+        self.image.config(bg=self.bg_color)
+        self.caption.config(bg=self.bg_color)
+        self.config(bg=self.bg_color)
+        self.selected_items.remove(self.filename_path)
+
+    def select(self):
+        self.image.config(bg=self.select_color)
+        self.caption.config(bg=self.select_color)
+        self.config(bg=self.select_color)
+        self.selected_items.add(self.filename_path)
+
+    def on_click(self,event):
+        self.dragged_over.clear()
+        if self not in self.dragged_over:
+            if self.filename_path in self.selected_items:
+                self.deselect()
+                self.mouse_action=0
+            else:
+                self.select()
+                self.mouse_action=1
+            self.dragged_over.add(self)
+    def on_drag(self, event):
+        widget=event.widget.winfo_containing(event.x_root, event.y_root)
+        if widget is None:
+            return
+        while widget and not isinstance(widget, item):
+            widget = widget.master
+        if isinstance(widget, item) and widget not in self.dragged_over:
+            if self.mouse_action == 0:
+                widget.deselect()
+            else:
+                widget.select()
+            self.dragged_over.add(widget)
+
 
 class MediaSelectorApp:
     def __init__(self, master, card_data, card_dir, media_dir, organised_dir):
@@ -46,6 +121,8 @@ class MediaSelectorApp:
         self.save_button = tk.Button(master, text="Save Selections", command=self.save_selections)
         self.save_button.pack(pady=5)
 
+        self.dragged_over = set()
+
         # Load directories into listbox
         self.load_directories()
 
@@ -61,6 +138,7 @@ class MediaSelectorApp:
         for d in dirs:
             self.dir_listbox.insert(tk.END, d)
 
+
     def display_media(self):
         """Display all media in a fixed 4-column grid."""
         for widget in self.item_grid.winfo_children():
@@ -72,55 +150,13 @@ class MediaSelectorApp:
         self.thumbnails = []
 
         for idx, file_obj in enumerate(self.all_items):
-            filepath = self.media_dir+"/"+self.card_dir+"/"+file_obj["filename"]
-            if not filepath or not os.path.exists(filepath):
-                print("ERROR: file in json from source media interface executable couldn't be found")
-                continue
 
             row = idx // cols
             col = idx % cols
 
-            if file_obj["file_type"] in ["image-preview","image"]:
-                #File type is image
-                try:
-                    img = Image.open(filepath).convert("RGB")
-                    img.thumbnail(thumb_size)
-                    photo = ImageTk.PhotoImage(img)
-                except Exception:
-                    #couldn't open or read the image file
-                    img = Image.new("RGB", thumb_size, (100, 100, 100))
-                    photo = ImageTk.PhotoImage(img)
-            else:
-                # Video placeholder
-                img = Image.new("RGB", thumb_size, (60, 60, 60))
-                photo = ImageTk.PhotoImage(img)
+            additional_item = item(self.item_grid, file_obj,self.media_dir,self.card_dir, self.selected_items, thumb_size ,self.main_frame.cget('bg'),"#5293fa", bd=6)
+            additional_item.grid(row=row, column=col, padx=10, pady=10)
 
-            self.thumbnails.append(photo)  # persist reference
-
-            # Frame for each media item
-            item_frame = tk.Frame(self.item_grid, bd=6)
-            item_frame.grid(row=row, column=col, padx=10, pady=10)
-
-            label = tk.Label(item_frame, image=photo)
-            label.pack()
-            name_label = tk.Label(item_frame, text=os.path.basename(filepath), wraplength=140)
-            name_label.pack()
-
-            # Click to select/deselect
-            label.bind("<Button-1>", lambda e, path=filepath, frame=item_frame,text=name_label,image=label: self.toggle_selection(path, frame,text,image))
-
-    def toggle_selection(self, filepath, frame, text,image):
-        """Toggle selection highlight on click."""
-        if filepath in self.selected_items:
-            self.selected_items.remove(filepath)
-            frame.config(bg=self.main_frame.cget('bg'))
-            text.config(bg=self.main_frame.cget('bg'))
-            image.config(bg=self.main_frame.cget('bg'))
-        else:
-            self.selected_items.add(filepath)
-            frame.config(bg="#5293fa")
-            text.config(bg="#5293fa")
-            image.config(bg="#5293fa")
 
     def save_selections(self):
         """Save selected files and chosen directory to JSON."""
