@@ -68,6 +68,8 @@ class item(tk.Frame):
                 self.select()
                 self.mouse_action=1
             self.dragged_over.add(self)
+    def get_filename_path(self):
+        return self.filename_path
     def on_drag(self, event):
         widget=event.widget.winfo_containing(event.x_root, event.y_root)
         if widget is None:
@@ -75,10 +77,10 @@ class item(tk.Frame):
         while widget and not isinstance(widget, item):
             widget = widget.master
         if isinstance(widget, item) and widget not in self.dragged_over:
-            if self.mouse_action == 0:
-                widget.deselect()
-            else:
+            if self.mouse_action == 1:
                 widget.select()
+            elif widget.get_filename_path() in self.selected_items:
+                widget.deselect()
             self.dragged_over.add(widget)
 
 
