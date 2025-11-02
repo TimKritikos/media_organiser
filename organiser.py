@@ -173,6 +173,20 @@ class MediaSelectorApp:
         self.selected_items.update() # Write inital text on the counter label
 
         self.canvas.bind("<Configure>", lambda x: self.canvas.after_idle(self.update_item_layout))
+        self.canvas.bind("<Enter>", self.bind_grid_scroll)
+        self.canvas.bind("<Leave>", self.unbind_grid_scroll)
+
+    def bind_grid_scroll(self, event):
+        self.canvas.bind_all("<Button-4>", self.scroll_steps)
+        self.canvas.bind_all("<Button-5>", self.scroll_steps)
+    def unbind_grid_scroll(self, event):
+        self.canvas.unbind_all("<Button-4>")
+        self.canvas.unbind_all("<Button-5>")
+    def scroll_steps(self,event):
+        if event.num == 4:
+            self.canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            self.canvas.yview_scroll(1, "units")
 
     def update_counter(self,count):
         self.item_count.config(text="Item count: "+str(count))
