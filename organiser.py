@@ -5,6 +5,7 @@ from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 import subprocess
 import argparse
+from tkinter import ttk
 
 class CountCallbackSet:
     def __init__(self):
@@ -175,11 +176,14 @@ class MediaSelectorApp:
         self.selected_items = CountCallbackSet()  # set of selected file paths
         self.organised_dir=organised_dir
 
+        self.list_grid_pane = ttk.PanedWindow(root, orient=tk.HORIZONTAL)
+
+        grid_and_toolbar=tk.Frame(self.list_grid_pane)
         # Left panel: grid of items
-        self.grid_frame = ItemGrid(root,organised_dir,thumb_size,item_border_size,item_padding,self.selected_items,card_data,media_dir,card_dir)
+        self.grid_frame = ItemGrid(grid_and_toolbar,organised_dir,thumb_size,item_border_size,item_padding,self.selected_items,card_data,media_dir,card_dir)
 
         # Toolbar
-        self.toolbar=tk.Frame(root, bd=3)
+        self.toolbar=tk.Frame(grid_and_toolbar, bd=3)
         self.toolbar.config(relief="groove")
         self.save_button = tk.Button(self.toolbar, text="Save Selections", command=self.save_selections)
         self.select_all = tk.Button(self.toolbar, text="Select All", command=self.select_all)
@@ -192,15 +196,20 @@ class MediaSelectorApp:
         self.select_invert.pack(side=tk.LEFT,padx=2)
         self.item_count.pack(side=tk.RIGHT,padx=2)
 
+        self.grid_frame.grid(row=0,column=0,sticky='nswe')
+        self.toolbar.grid(row=1,column=0,sticky='we')
+        grid_and_toolbar.grid_rowconfigure(0, weight=1)
+        grid_and_toolbar.grid_columnconfigure(0, weight=1)
 
         # Right panel: project listing
-        self.dir_frame = tk.Frame(root, width=400, bd=2, relief="sunken")
-        self.dir_listbox = tk.Listbox(self.dir_frame)
+        self.dir_frame = tk.Frame(self.list_grid_pane, bd=2, relief="sunken")
+        self.dir_listbox = tk.Listbox(self.dir_frame, width=60)
         self.dir_listbox.pack(fill="both", expand=True)
 
-        self.grid_frame.grid (row=0,column=0,sticky='nswe')
-        self.dir_frame.grid  (row=0,column=1,rowspan=2,sticky='sn')
-        self.toolbar.grid(row=1,column=0,sticky='we')
+        self.list_grid_pane.add(grid_and_toolbar, weight=1)
+        self.list_grid_pane.add(self.dir_frame, weight=1)
+
+        self.list_grid_pane.grid (row=0,column=0,sticky='nswe')
         root.grid_rowconfigure(0, weight=1)
         root.grid_columnconfigure(0, weight=1)
 
