@@ -52,9 +52,9 @@ class item(tk.Frame):
             self.photo_obj = ImageTk.PhotoImage(img)
 
 
-        self.image = tk.Label(self, image=self.photo_obj)
+        self.image = tk.Label(self, image=self.photo_obj, borderwidth=0)
         self.image.pack()
-        self.caption = tk.Label(self, text=os.path.basename(self.filename_path), wraplength=140)
+        self.caption = tk.Label(self, text=os.path.basename(self.filename_path), wraplength=thumb_size[0], borderwidth=0)
         self.caption.pack()
 
         for i in (self.image, self.caption, self):
@@ -106,7 +106,7 @@ class item(tk.Frame):
 
 
 class MediaSelectorApp:
-    def __init__(self, root, card_data, card_dir, media_dir, organised_dir):
+    def __init__(self, root, card_data, card_dir, media_dir, organised_dir, thumb_size, item_border_size, item_padding):
         self.root = root
         self.root.title("MEDIA organiser")
         self.organised_dir = organised_dir
@@ -117,14 +117,14 @@ class MediaSelectorApp:
 
         # Left panel: grid of items
         self.grid_frame = tk.Frame(root)
-        self.canvas = tk.Canvas(self.grid_frame)
+        self.canvas = tk.Canvas(self.grid_frame, highlightthickness=0)
         self.scrollbar = tk.Scrollbar(self.grid_frame, orient="vertical", command=self.canvas.yview)
         self.item_grid = tk.Frame(self.canvas)
         self.item_grid.bind(
             "<Configure>",
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
-        self.canvas.create_window((0, 0), window=self.item_grid, anchor="nw")
+        self.canvas_window=self.canvas.create_window((0, 0), window=self.item_grid, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
@@ -133,6 +133,10 @@ class MediaSelectorApp:
         self.dir_frame = tk.Frame(root, width=400, bd=2, relief="sunken")
         self.dir_listbox = tk.Listbox(self.dir_frame)
         self.dir_listbox.pack(fill="both", expand=True)
+        self.thumb_size = thumb_size
+        self.item_border_size=item_border_size
+        self.item_padding=item_padding
+        self.items_per_row=0
 
 
         # Save button
@@ -161,11 +165,15 @@ class MediaSelectorApp:
         # Load directories into listbox
         self.load_directories()
 
-        # Display media grid
-        self.display_media()
+        # create the items
+        for file_obj in self.all_items:
+            self.items.append(item(self.item_grid, file_obj,self.media_dir,self.card_dir, self.selected_items, self.thumb_size ,self.root.cget('bg'),"#5293fa", bd=self.item_border_size))
 
         self.selected_items.register_callback(self.update_counter)
         self.selected_items.update() # Write inital text on the counter label
+
+        self.canvas.bind("<Configure>", lambda x: self.canvas.after_idle(self.update_item_layout))
+
     def update_counter(self,count):
         self.item_count.config(text="Item count: "+str(count))
     def select_all(self):
@@ -191,25 +199,25 @@ class MediaSelectorApp:
         for d in dirs:
             self.dir_listbox.insert(tk.END, d)
 
+    def update_item_layout(self, event=None):
 
-    def display_media(self):
-        """Display all media in a fixed 4-column grid."""
-        for widget in self.item_grid.winfo_children():
-            widget.destroy()
+        self.canvas.update_idletasks()
+        canvas_width = self.canvas.winfo_width()
 
-        thumb_size = (180, 180)
-        cols = 4
+        if canvas_width <= 1:  # not yet drawn
+            return
 
-        self.thumbnails = []
+        per_row = max(1, canvas_width // (self.thumb_size[0] + self.item_border_size*2 + self.item_padding*2))
+        if self.items_per_row != per_row:
+            self.canvas.itemconfig(self.canvas_window, width=canvas_width)
+            for item in self.items:
+                item.grid_forget()
 
-        for idx, file_obj in enumerate(self.all_items):
-
-            row = idx // cols
-            col = idx % cols
-
-            additional_item = item(self.item_grid, file_obj,self.media_dir,self.card_dir, self.selected_items, thumb_size ,self.root.cget('bg'),"#5293fa", bd=6)
-            additional_item.grid(row=row, column=col, padx=10, pady=10)
-            self.items.append(additional_item)
+            for idx, item in enumerate(self.items):
+                row = idx // per_row
+                col = idx % per_row
+                item.grid(row=row, column=col, padx=self.item_padding, pady=self.item_padding, sticky="nsew")
+            self.items_per_row=per_row
 
 
     def save_selections(self):
@@ -324,7 +332,7 @@ def main():
         return 1
 
 
-    app = MediaSelectorApp(root,card_item_list["file_list"],card_dir,media_dir, media_dir+"/"+organised_dir_sanitised)
+    app = MediaSelectorApp(root,card_item_list["file_list"],card_dir,media_dir, media_dir+"/"+organised_dir_sanitised,(180,180),6,10)
     root.mainloop()
 
 
