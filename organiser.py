@@ -27,7 +27,7 @@ class CountCallbackSet:
     def register_callback(self,callback):
         self.callback=callback
 
-class item(tk.Frame):
+class Item(tk.Frame):
     def __init__(self, root, item_data,media_dir,card_dir, selected_items, thumb_size,bg_color,select_color, **kwargs):
         super().__init__(root,**kwargs)
 
@@ -95,30 +95,21 @@ class item(tk.Frame):
         widget=event.widget.winfo_containing(event.x_root, event.y_root)
         if widget is None:
             return
-        while widget and not isinstance(widget, item):
+        while widget and not isinstance(widget, Item):
             widget = widget.master
-        if isinstance(widget, item) and widget not in self.dragged_over:
+        if isinstance(widget, Item) and widget not in self.dragged_over:
             if self.mouse_action == 1:
                 widget.select()
             elif widget.get_filename_path() in self.selected_items:
                 widget.deselect()
             self.dragged_over.add(widget)
 
+class ItemGrid(tk.Frame):
+    def __init__(self, root, organised_dir, thumb_size, item_border_size, item_padding, selected_items, card_data, media_dir, card_dir):
+        super().__init__(root)
 
-class MediaSelectorApp:
-    def __init__(self, root, card_data, card_dir, media_dir, organised_dir, thumb_size, item_border_size, item_padding):
-        self.root = root
-        self.root.title("MEDIA organiser")
-        self.organised_dir = organised_dir
-        self.selected_items = CountCallbackSet()  # set of selected file paths
-        self.all_items = card_data   # list of file objects from JSON
-        self.media_dir = media_dir
-        self.card_dir = card_dir
-
-        # Left panel: grid of items
-        self.grid_frame = tk.Frame(root)
-        self.canvas = tk.Canvas(self.grid_frame, highlightthickness=0)
-        self.scrollbar = tk.Scrollbar(self.grid_frame, orient="vertical", command=self.canvas.yview)
+        self.canvas = tk.Canvas(self, highlightthickness=0)
+        self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.item_grid = tk.Frame(self.canvas)
         self.item_grid.bind(
             "<Configure>",
@@ -129,48 +120,18 @@ class MediaSelectorApp:
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
 
-        # Right panel: project listing
-        self.dir_frame = tk.Frame(root, width=400, bd=2, relief="sunken")
-        self.dir_listbox = tk.Listbox(self.dir_frame)
-        self.dir_listbox.pack(fill="both", expand=True)
-        self.thumb_size = thumb_size
+        self.thumb_size=thumb_size
         self.item_border_size=item_border_size
         self.item_padding=item_padding
         self.items_per_row=0
 
-
-        # Save button
-        self.toolbar=tk.Frame(root, bd=3)
-        self.toolbar.config(relief="groove")
-        self.save_button = tk.Button(self.toolbar, text="Save Selections", command=self.save_selections)
-        self.select_all = tk.Button(self.toolbar, text="Select All", command=self.select_all)
-        self.select_none = tk.Button(self.toolbar, text="Select None", command=self.select_none)
-        self.select_invert = tk.Button(self.toolbar, text="Invert selections", command=self.select_invert)
-        self.item_count = tk.Label(self.toolbar, text="")
-        self.save_button.pack(side=tk.LEFT,padx=(4,2),pady=2)
-        self.select_all.pack(side=tk.LEFT,padx=2)
-        self.select_none.pack(side=tk.LEFT,padx=2)
-        self.select_invert.pack(side=tk.LEFT,padx=2)
-        self.item_count.pack(side=tk.RIGHT,padx=2)
-
-        self.grid_frame.grid (row=0,column=0,sticky='nswe')
-        self.dir_frame.grid  (row=0,column=1,rowspan=2,sticky='sn')
-        self.toolbar.grid(row=1,column=0,sticky='we')
-        self.root.grid_rowconfigure(0, weight=1)
-        self.root.grid_columnconfigure(0, weight=1)
-
         self.dragged_over = set()
         self.items=[]
 
-        # Load directories into listbox
-        self.load_directories()
-
         # create the items
-        for file_obj in self.all_items:
-            self.items.append(item(self.item_grid, file_obj,self.media_dir,self.card_dir, self.selected_items, self.thumb_size ,self.root.cget('bg'),"#5293fa", bd=self.item_border_size))
+        for file_obj in card_data:
+            self.items.append(Item(self.item_grid, file_obj,media_dir,card_dir, selected_items, self.thumb_size ,root.cget('bg'),"#5293fa", bd=self.item_border_size))
 
-        self.selected_items.register_callback(self.update_counter)
-        self.selected_items.update() # Write inital text on the counter label
 
         self.canvas.bind("<Configure>", lambda x: self.canvas.after_idle(self.update_item_layout))
         self.canvas.bind("<Enter>", self.bind_grid_scroll)
@@ -187,32 +148,6 @@ class MediaSelectorApp:
             self.canvas.yview_scroll(-1, "units")
         elif event.num == 5:
             self.canvas.yview_scroll(1, "units")
-
-    def update_counter(self,count):
-        self.item_count.config(text="Item count: "+str(count))
-    def select_all(self):
-        for i in self.items:
-            i.select()
-    def select_none(self):
-        for i in self.items:
-            if i.get_filename_path() in self.selected_items:
-                i.deselect()
-    def select_invert(self):
-        for i in self.items:
-            if i.get_filename_path() in self.selected_items:
-                i.deselect()
-            else:
-                i.select()
-
-    def load_directories(self):
-        if not os.path.isdir(self.organised_dir):
-            print("ERROR: organised dir is invalid")
-            return
-        dirs = [d for d in os.listdir(self.organised_dir) if os.path.isdir(os.path.join(self.organised_dir, d))]
-        dirs.sort()
-        for d in dirs:
-            self.dir_listbox.insert(tk.END, d)
-
     def update_item_layout(self, event=None):
 
         self.canvas.update_idletasks()
@@ -232,6 +167,74 @@ class MediaSelectorApp:
                 col = idx % per_row
                 item.grid(row=row, column=col, padx=self.item_padding, pady=self.item_padding, sticky="nsew")
             self.items_per_row=per_row
+
+
+class MediaSelectorApp:
+    def __init__(self, root, card_data, card_dir, media_dir, organised_dir, thumb_size, item_border_size, item_padding):
+        root.title("MEDIA organiser")
+        self.selected_items = CountCallbackSet()  # set of selected file paths
+        self.organised_dir=organised_dir
+
+        # Left panel: grid of items
+        self.grid_frame = ItemGrid(root,organised_dir,thumb_size,item_border_size,item_padding,self.selected_items,card_data,media_dir,card_dir)
+
+        # Toolbar
+        self.toolbar=tk.Frame(root, bd=3)
+        self.toolbar.config(relief="groove")
+        self.save_button = tk.Button(self.toolbar, text="Save Selections", command=self.save_selections)
+        self.select_all = tk.Button(self.toolbar, text="Select All", command=self.select_all)
+        self.select_none = tk.Button(self.toolbar, text="Select None", command=self.select_none)
+        self.select_invert = tk.Button(self.toolbar, text="Invert selections", command=self.select_invert)
+        self.item_count = tk.Label(self.toolbar, text="")
+        self.save_button.pack(side=tk.LEFT,padx=(4,2),pady=2)
+        self.select_all.pack(side=tk.LEFT,padx=2)
+        self.select_none.pack(side=tk.LEFT,padx=2)
+        self.select_invert.pack(side=tk.LEFT,padx=2)
+        self.item_count.pack(side=tk.RIGHT,padx=2)
+
+
+        # Right panel: project listing
+        self.dir_frame = tk.Frame(root, width=400, bd=2, relief="sunken")
+        self.dir_listbox = tk.Listbox(self.dir_frame)
+        self.dir_listbox.pack(fill="both", expand=True)
+
+        self.grid_frame.grid (row=0,column=0,sticky='nswe')
+        self.dir_frame.grid  (row=0,column=1,rowspan=2,sticky='sn')
+        self.toolbar.grid(row=1,column=0,sticky='we')
+        root.grid_rowconfigure(0, weight=1)
+        root.grid_columnconfigure(0, weight=1)
+
+        self.selected_items.register_callback(self.update_counter)
+        self.selected_items.update() # Write initial text on the counter label
+
+        # Load directories into listbox
+        self.load_directories()
+
+    def update_counter(self,count):
+        self.item_count.config(text="Item count: "+str(count))
+
+    def select_all(self):
+        for i in self.grid_frame.items:
+            i.select()
+    def select_none(self):
+        for i in self.grid_frame.items:
+            if i.get_filename_path() in self.selected_items:
+                i.deselect()
+    def select_invert(self):
+        for i in self.grid_frame.items:
+            if i.get_filename_path() in self.selected_items:
+                i.deselect()
+            else:
+                i.select()
+
+    def load_directories(self):
+        if not os.path.isdir(self.organised_dir):
+            print("ERROR: organised dir is invalid")
+            return
+        dirs = [d for d in os.listdir(self.organised_dir) if os.path.isdir(os.path.join(self.organised_dir, d))]
+        dirs.sort()
+        for d in dirs:
+            self.dir_listbox.insert(tk.END, d)
 
 
     def save_selections(self):
