@@ -247,8 +247,8 @@ def main():
     root.geometry("1000x600")
 
     parser = argparse.ArgumentParser(description='Organise a card of a source_media dir')
-    parser.add_argument('card_dir', type=str, help='The directory of the card to be organised relative to the current working directory or an absolute path')
     parser.add_argument('organised_dir', type=str, help='The organised dir the contains project directories. Relative to the current working directory or an absolute path')
+    parser.add_argument('card_dir', type=str, help='The directory of the card to be organised relative to the current working directory or an absolute path')
     parser.add_argument('-v','--version', help='print the version of this program and exit successfully', action="version", version=version)
 
     args = parser.parse_args()
@@ -260,6 +260,15 @@ def main():
     if not os.path.isdir(media_dir):
         print("ERROR: Calculated media_dir or card_dir doesn\'t exist")
         return 1
+    try:
+        structure_version_file = open(media_dir+"/structure_version")
+    except Exception:
+        print("ERROR: Could find structure_version in media dir of provided card_dir")
+        return 1
+    if structure_version_file.read().split('.')[0] != "v2":
+        print("ERROR: Major media version is incompatible")
+        return 1
+    structure_version_file.close()
     card_dir_absolute=os.path.abspath(args.card_dir)
     if card_dir_absolute.find("/MEDIA/") == -1:
         print("ERROR: card_dir doesn't not seem to be in MEDIA or is the root of MEDIA")
@@ -267,6 +276,9 @@ def main():
     card_dir=card_dir_absolute.split("/MEDIA/")[1]
     if not os.path.isdir(media_dir+"/"+card_dir):
         print("ERROR: Calculated card_dir is invalid")
+        return 1
+    if card_dir.find("/DATA/") == -1:
+        print("ERROR: card_dir is invalid")
         return 1
     source_media_dir=card_dir.split("/DATA/")[0]
     if not os.path.isdir(media_dir+"/"+source_media_dir):
