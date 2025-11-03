@@ -134,7 +134,7 @@ class ItemGrid(tk.Frame):
         self.dragged_over = set()
         self.items=[]
 
-        self.item_list=load_inerface_data(input_data,0,'list-thumbnails')
+        self.item_list=load_interface_data(input_data,0,'list-thumbnails')
 
         # create the items
         for item in self.item_list["file_list"]:
@@ -175,7 +175,6 @@ class ItemGrid(tk.Frame):
                 col = idx % per_row
                 item.grid(row=row, column=col, padx=self.item_padding, pady=self.item_padding, sticky="nsew")
             self.items_per_row=per_row
-
 
 class MediaSelectorApp:
     def __init__(self,root, input_data, thumb_size=(180,180), item_border_size=6, item_padding=10):
@@ -289,9 +288,18 @@ class MediaSelectorApp:
         selection = self.dir_listbox.curselection()
         selected_dir = self.dir_listbox.get(selection[0]) if selection else None
 
+        files_to_link=[]
+        for file_id in self.selected_items:
+            file_id=file_id.removeprefix(self.input_data["sources"][0])
+            if file_id[0]=='/':
+                file_id=file_id.removeprefix('/')
+            for file_to_link in load_interface_data(self.input_data, 0, 'get-related',arg=file_id)["file_list"]:
+                files_to_link.append(file_to_link["filename"])
+
+
         data = {
                 "selected_directory": selected_dir,
-                "selected_files": [f for f in self.selected_items ]
+                "selected_files": files_to_link
         }
 
         with open(save_path, "w") as f:
@@ -299,7 +307,7 @@ class MediaSelectorApp:
 
         messagebox.showinfo("Saved", f"Selections saved to:\n{save_path}")
 
-def load_inerface_data(input_data , source_number, query, arg=None):
+def load_interface_data(input_data , source_number, query, arg=None):
     pass_id=input_data["sources"][source_number].split('/')[-1]
     match query:
         case 'list-thumbnails':
