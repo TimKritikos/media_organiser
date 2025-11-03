@@ -176,6 +176,38 @@ class ItemGrid(tk.Frame):
                 item.grid(row=row, column=col, padx=self.item_padding, pady=self.item_padding, sticky="nsew")
             self.items_per_row=per_row
 
+class ShellScriptWindow(tk.Frame):
+    def __init__(self, root):
+        super().__init__(root)
+        self.text_widget=tk.Text(self, bg='black', fg='white')
+        self.text_widget.insert(tk.END, "#!/bin/sh\nset -eu\n")
+        self.text_widget.config(state=tk.DISABLED)
+        self.text_widget.grid(row=0,column=0,sticky='nswe')
+        self.script_lines=set()
+        self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.text_widget.yview)
+        self.text_widget['yscrollcommand'] = self.scrollbar.set
+        self.scrollbar.grid(row=0,column=1,sticky='ns')
+    def add_file(self, file, project_dir,input_data):
+        source_dir=input_data["sources"][0]
+        destination_dir=input_data["destinations"][0]
+        if destination_dir[-1]!='/':
+            destination_dir=destination_dir+'/'
+        destination_append=input_data["destinations_append"]
+        if destination_append[-1]!='/':
+            destination_append=destination_append+'/'
+        if destination_append[0]!='/':
+            destination_append='/'+destination_append
+        destination_dir=destination_dir+project_dir+destination_append
+        if not os.path.isdir(destination_dir):
+            raise FileNotFound
+        line="ln -s '"+os.path.relpath(source_dir+file,destination_dir)+"' '"+destination_dir+"'\n"
+        if line not in self.script_lines:
+            self.text_widget.config(state=tk.NORMAL)
+            self.text_widget.insert(tk.END, line)
+            self.text_widget.config(state=tk.DISABLED)
+            self.script_lines.add(line)
+            self.text_widget.see("end")
+
 class MediaSelectorApp:
     def __init__(self,root, input_data, thumb_size=(180,180), item_border_size=6, item_padding=10):
 
@@ -203,7 +235,8 @@ class MediaSelectorApp:
 
         self.selected_items = CountCallbackSet()  # set of selected file paths
 
-        self.list_grid_pane = ttk.PanedWindow(root, orient=tk.HORIZONTAL)
+        self.upper_and_shell_pane = ttk.PanedWindow(root, orient=tk.VERTICAL)
+        self.list_grid_pane = ttk.PanedWindow(self.upper_and_shell_pane, orient=tk.HORIZONTAL)
 
         grid_and_toolbar=tk.Frame(self.list_grid_pane)
         # Left panel: grid of items
@@ -212,12 +245,12 @@ class MediaSelectorApp:
         # Toolbar
         self.toolbar=tk.Frame(grid_and_toolbar, bd=3)
         self.toolbar.config(relief="groove")
-        self.save_button = tk.Button(self.toolbar, text="Save Selections", command=self.save_selections)
+        self.add_to_script_button = tk.Button(self.toolbar, text="Add to script", command=self.add_to_script)
         self.select_all = tk.Button(self.toolbar, text="Select All", command=self.select_all)
         self.select_none = tk.Button(self.toolbar, text="Select None", command=self.select_none)
         self.select_invert = tk.Button(self.toolbar, text="Invert selections", command=self.select_invert)
         self.item_count = tk.Label(self.toolbar, text="")
-        self.save_button.pack(side=tk.LEFT,padx=(4,2),pady=2)
+        self.add_to_script_button.pack(side=tk.LEFT,padx=(4,2),pady=2)
         self.select_all.pack(side=tk.LEFT,padx=2)
         self.select_none.pack(side=tk.LEFT,padx=2)
         self.select_invert.pack(side=tk.LEFT,padx=2)
@@ -236,7 +269,16 @@ class MediaSelectorApp:
         self.list_grid_pane.add(grid_and_toolbar, weight=1)
         self.list_grid_pane.add(self.dir_frame, weight=1)
 
-        self.list_grid_pane.grid (row=0,column=0,sticky='nswe')
+
+        self.shell_script_window=ShellScriptWindow(self.upper_and_shell_pane)
+        self.shell_script_window.grid(row=0,column=0,sticky='nswe')
+        self.shell_script_window.grid_rowconfigure(0, weight=1)
+        self.shell_script_window.grid_columnconfigure(0, weight=1)
+
+        self.upper_and_shell_pane.add(self.list_grid_pane, weight=1)
+        self.upper_and_shell_pane.add(self.shell_script_window, weight=1)
+
+        self.upper_and_shell_pane.grid (row=0,column=0,sticky='nswe')
         root.grid_rowconfigure(0, weight=1)
         root.grid_columnconfigure(0, weight=1)
 
@@ -270,39 +312,23 @@ class MediaSelectorApp:
         for d in dirs:
             self.dir_listbox.insert(tk.END, d)
 
-
-    def save_selections(self):
-        """Save selected files and chosen directory to JSON."""
-        if not self.selected_items:
-            messagebox.showinfo("No Selection", "No items selected.")
-            return
-
-        save_path = filedialog.asksaveasfilename(
-            defaultextension=".json",
-            filetypes=[("JSON files", "*.json")]
-        )
-        if not save_path:
-            return
-
-        # Get selected directory
+    def add_to_script(self):
         selection = self.dir_listbox.curselection()
-        selected_dir = self.dir_listbox.get(selection[0]) if selection else None
+        if not selection:
+            messagebox.showinfo("No project selection", "No project selection")
+            return
+
+        selected_dir = self.dir_listbox.get(selection[0])
+
+        if not self.selected_items:
+            messagebox.showinfo("No items selected.", "No items selected.")
+            return
 
         files_to_link=[]
         for file_id in self.selected_items:
             for file_to_link in load_interface_data(self.input_data, 0, 'get-related',arg=file_id)["file_list"]:
-                files_to_link.append(file_to_link["filename"])
+                self.shell_script_window.add_file(file_to_link["filename"],selected_dir,self.input_data)
 
-
-        data = {
-                "selected_directory": selected_dir,
-                "selected_files": files_to_link
-        }
-
-        with open(save_path, "w") as f:
-            json.dump(data, f, indent=4)
-
-        messagebox.showinfo("Saved", f"Selections saved to:\n{save_path}")
 
 def load_interface_data(input_data , source_number, query, arg=None):
     #Convert the relative or absolute paths to the paths relative to the source dir that the interface expects
