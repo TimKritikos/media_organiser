@@ -290,9 +290,6 @@ class MediaSelectorApp:
 
         files_to_link=[]
         for file_id in self.selected_items:
-            file_id=file_id.removeprefix(self.input_data["sources"][0])
-            if file_id[0]=='/':
-                file_id=file_id.removeprefix('/')
             for file_to_link in load_interface_data(self.input_data, 0, 'get-related',arg=file_id)["file_list"]:
                 files_to_link.append(file_to_link["filename"])
 
@@ -308,7 +305,16 @@ class MediaSelectorApp:
         messagebox.showinfo("Saved", f"Selections saved to:\n{save_path}")
 
 def load_interface_data(input_data , source_number, query, arg=None):
-    pass_id=input_data["sources"][source_number].split('/')[-1]
+    #Convert the relative or absolute paths to the paths relative to the source dir that the interface expects
+    pass_id=input_data["sources"][source_number]
+    if pass_id[-1]=='/':
+        pass_id=pass_id.rstrip("/")
+    pass_id=pass_id.split('/')[-1]
+    if arg!=None:
+        arg=arg.removeprefix(input_data["sources"][0])
+        if arg[0]=='/':
+            arg=arg.removeprefix('/')
+
     match query:
         case 'list-thumbnails':
             data=json.loads(subprocess.check_output([input_data["interfaces"][source_number], '-l', pass_id]))
