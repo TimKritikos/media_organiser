@@ -1,11 +1,15 @@
 import json
 import os
+import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 import subprocess
 import argparse
 from tkinter import ttk
+
+class CmdLineError(Exception):
+    pass
 
 class CountCallbackSet:
     def __init__(self):
@@ -29,10 +33,11 @@ class CountCallbackSet:
         self.callback=callback
 
 class Item(tk.Frame):
-    def __init__(self, root, item_data,media_dir,card_dir, selected_items, thumb_size,bg_color,select_color, **kwargs):
+    def __init__(self, root, item_data,  selected_items, input_data, input_data_source_index, thumb_size, bg_color, select_color, **kwargs):
         super().__init__(root,**kwargs)
 
-        self.filename_path=media_dir+"/"+card_dir+"/"+item_data["filename"]
+        self.filename_path=input_data["sources"][input_data_source_index]+"/"+item_data["filename"]
+
         if not self.filename_path or not os.path.exists(self.filename_path):
             print("ERROR: file in json from source media interface executable couldn't be found")
             return -1
@@ -106,7 +111,7 @@ class Item(tk.Frame):
             self.dragged_over.add(widget)
 
 class ItemGrid(tk.Frame):
-    def __init__(self, root, organised_dir, thumb_size, item_border_size, item_padding, selected_items, card_data, media_dir, card_dir):
+    def __init__(self, root, thumb_size, item_border_size, item_padding, selected_items, input_data):
         super().__init__(root)
 
         self.canvas = tk.Canvas(self, highlightthickness=0)
@@ -129,9 +134,11 @@ class ItemGrid(tk.Frame):
         self.dragged_over = set()
         self.items=[]
 
+        self.item_list=load_inerface_data(input_data,0,'list-thumbnails')
+
         # create the items
-        for file_obj in card_data:
-            self.items.append(Item(self.item_grid, file_obj,media_dir,card_dir, selected_items, self.thumb_size ,root.cget('bg'),"#5293fa", bd=self.item_border_size))
+        for item in self.item_list["file_list"]:
+            self.items.append(Item(self.item_grid, item, selected_items, input_data, 0, self.thumb_size ,root.cget('bg'), "#5293fa", bd=self.item_border_size))
 
 
         self.canvas.bind("<Configure>", lambda x: self.canvas.after_idle(self.update_item_layout))
@@ -171,16 +178,37 @@ class ItemGrid(tk.Frame):
 
 
 class MediaSelectorApp:
-    def __init__(self, root, card_data, card_dir, media_dir, organised_dir, thumb_size, item_border_size, item_padding):
+    def __init__(self,root, input_data, thumb_size=(180,180), item_border_size=6, item_padding=10):
+
+        for interface in input_data["interfaces"]:
+            if not os.path.isfile(interface):
+                raise CmdLineError("Following provided interface file doesn\'t exist '"+interface+"'")
+            if not os.access(interface, os.X_OK):
+                raise CmdLineError("Following provided interface file isn\'t executable '"+interface+"'")
+        for source in input_data["sources"]:
+            if not os.path.isdir(source):
+                raise CmdLineError("Following provided source directory doesn\'t exist: '"+source+"'")
+        for destination in input_data["destinations"]:
+            if not os.path.isdir(destination):
+                raise CmdLineError("Following provided destination directory doesn\'t exist '"+destination+"'")
+
+        if len(input_data["sources"]) != len(input_data["interfaces"]) and len(input_data["interfaces"])!=1:
+            raise CmdLineError("Non-one instances of the interface flag must match the number of instances of the source flag to match each interface in the order they appear in the command line to each source in the order they appear in the command line")
+
+        if len(input_data["sources"])!=1 or len(input_data["destinations"])!=1:
+            raise CmdLineError("Multiple source dirs or destination dirs aren't implemented yet")
+
+        self.input_data=input_data
+
         root.title("MEDIA organiser")
+
         self.selected_items = CountCallbackSet()  # set of selected file paths
-        self.organised_dir=organised_dir
 
         self.list_grid_pane = ttk.PanedWindow(root, orient=tk.HORIZONTAL)
 
         grid_and_toolbar=tk.Frame(self.list_grid_pane)
         # Left panel: grid of items
-        self.grid_frame = ItemGrid(grid_and_toolbar,organised_dir,thumb_size,item_border_size,item_padding,self.selected_items,card_data,media_dir,card_dir)
+        self.grid_frame = ItemGrid(grid_and_toolbar, thumb_size, item_border_size, item_padding, self.selected_items, input_data)
 
         # Toolbar
         self.toolbar=tk.Frame(grid_and_toolbar, bd=3)
@@ -237,10 +265,8 @@ class MediaSelectorApp:
                 i.select()
 
     def load_directories(self):
-        if not os.path.isdir(self.organised_dir):
-            print("ERROR: organised dir is invalid")
-            return
-        dirs = [d for d in os.listdir(self.organised_dir) if os.path.isdir(os.path.join(self.organised_dir, d))]
+        self.dir_listbox.delete(0, tk.END)
+        dirs = [d for d in os.listdir(self.input_data["destinations"][0]) if os.path.isdir(os.path.join(self.input_data["destinations"][0], d))]
         dirs.sort()
         for d in dirs:
             self.dir_listbox.insert(tk.END, d)
@@ -273,6 +299,27 @@ class MediaSelectorApp:
 
         messagebox.showinfo("Saved", f"Selections saved to:\n{save_path}")
 
+def load_inerface_data(input_data , source_number, query, arg=None):
+    pass_id=input_data["sources"][source_number].split('/')[-1]
+    match query:
+        case 'list-thumbnails':
+            data=json.loads(subprocess.check_output([input_data["interfaces"][source_number], '-l', pass_id]))
+        case 'get-related':
+            if arg == None:
+                print("Internal error: called load_interface_data without passing arg")
+                return None
+            data=json.loads(subprocess.check_output([input_data["interfaces"][source_number], '-g', pass_id, arg]))
+        case 'get-info':
+            if arg == None:
+                print("Internal error: called load_interface_data without passing arg")
+                return None
+            data=json.loads(subprocess.check_output([input_data["interfaces"][source_number], '-i', pass_id, arg]))
+        case _:
+            raise KeyError
+    if data["api_version"].split('.')[0] != "v1": #or (int)(card_item_list["api_version"].split('.')[1]) < 1:
+        print("ERROR invalid api version on source media interface")
+        return None
+    return data
 
 def main():
     version="v0.0-dev"
@@ -281,84 +328,27 @@ def main():
     root.geometry("1000x600")
 
     parser = argparse.ArgumentParser(description='Organise a card of a source_media dir')
-    parser.add_argument('organised_dir', type=str, help='The organised dir the contains project directories. Relative to the current working directory or an absolute path')
-    parser.add_argument('card_dir', type=str, help='The directory of the card to be organised relative to the current working directory or an absolute path')
-    parser.add_argument('-v','--version', help='print the version of this program and exit successfully', action="version", version=version)
+    parser.add_argument('-i','--interface',          type=str, action='append', required=True, help='Path to source dir interface executable')
+    parser.add_argument('-s','--source',             type=str, action='append', required=True, help='Path to the source dir of media to be linked. This can be enetered multiple times')
+    parser.add_argument('-d','--destination',        type=str, action='append', required=True, help='Path to the deistantion dir for links to be. This can be entered multiple times')
+    parser.add_argument('-a','--destination-append', type=str,                                 help='Path to be appended to the dir selected in the destination dir. For example if media needs to be linked in a subfolder')
+    parser.add_argument('-v','--version',                      action="version",               help='print the version of this program and exit successfully',  version=version)
 
     args = parser.parse_args()
 
-    if not os.path.isdir(args.card_dir):
-        print("ERROR: Provided card_dir doesn\'t exist")
-        return 1
-    media_dir=os.path.abspath(args.card_dir).split("/MEDIA/")[0]+"/MEDIA"
-    if not os.path.isdir(media_dir):
-        print("ERROR: Calculated media_dir or card_dir doesn\'t exist")
-        return 1
+    input_data={
+        "interfaces": args.interface,
+        "sources": args.source,
+        "destinations": args.destination,
+        "destinations_append": args.destination_append,
+    }
+
     try:
-        structure_version_file = open(media_dir+"/structure_version")
-    except Exception:
-        print("ERROR: Could find structure_version in media dir of provided card_dir")
-        return 1
-    if structure_version_file.read().split('.')[0] != "v2":
-        print("ERROR: Major media version is incompatible")
-        return 1
-    structure_version_file.close()
-    card_dir_absolute=os.path.abspath(args.card_dir)
-    if card_dir_absolute.find("/MEDIA/") == -1:
-        print("ERROR: card_dir doesn't not seem to be in MEDIA or is the root of MEDIA")
-        return 1
-    card_dir=card_dir_absolute.split("/MEDIA/")[1]
-    if not os.path.isdir(media_dir+"/"+card_dir):
-        print("ERROR: Calculated card_dir is invalid")
-        return 1
-    if card_dir.find("/DATA/") == -1:
-        print("ERROR: card_dir is invalid")
-        return 1
-    source_media_dir=card_dir.split("/DATA/")[0]
-    if not os.path.isdir(media_dir+"/"+source_media_dir):
-        print("ERROR: Calculated source_media_dir from card_dir is invalid")
-        return 1
-    card_id=card_dir.split("/DATA/")[1]
-    if not os.path.isdir(media_dir+"/"+source_media_dir+"/DATA/"+card_id) or not card_id:
-        print("ERROR: Calculated card id is invalid")
-        return 1
-    interface_executable_path=media_dir+"/"+source_media_dir+"/interface"
-    if not os.path.isfile(interface_executable_path):
-        print("ERROR: source media directory doesn't have an interface executable")
-        return 1
-    if not os.access(interface_executable_path, os.X_OK):
-        print("ERROR: source media directory has a file named interface but it's not executable")
-        return 1
+        app = MediaSelectorApp(root,input_data)
+    except CmdLineError as error_message:
+        print(f"ERROR: {error_message}", file=sys.stderr)
+        sys.exit(1)
 
-    if not os.path.isdir(args.organised_dir):
-        print("ERROR: Provided organised_dir doesn\'t exist")
-        return 1
-    organised_absolute_dir=os.path.abspath(args.organised_dir)
-    if organised_absolute_dir.find("/MEDIA/") == -1:
-        print("ERROR: organised_dir doesn't not seem to be in MEDIA or is the root of MEDIA")
-        return 1
-    if not os.path.isdir(organised_absolute_dir):
-        print("ERROR: Calculated organised dir doesn\'t exist")
-        return 1
-    organised_media_dir=organised_absolute_dir.split("/MEDIA/")[0]+"/MEDIA"
-    if not os.path.isdir(organised_media_dir) or not organised_media_dir:
-        print("ERROR: Calculated media_dir of organised dir doesn\'t exist")
-        return 1
-    if media_dir != organised_media_dir:
-        print("ERROR: Calculated media_dir of card_id doesn't match the calculated media_dir of the organised_dir")
-        return 1
-    organised_dir_sanitised=organised_absolute_dir.split("/MEDIA/")[1]
-    if not os.path.isdir(media_dir+"/"+organised_dir_sanitised):
-        print("ERROR: Calculated card_dir is invalid")
-        return 1
-
-    card_item_list = json.loads(subprocess.check_output([interface_executable_path, "-l", card_id]))
-    if card_item_list["api_version"].split('.')[0] != "v1": #or (int)(card_item_list["api_version"].split('.')[1]) < 1:
-        print("ERROR invalid api version on source media interface")
-        return 1
-
-
-    app = MediaSelectorApp(root,card_item_list["file_list"],card_dir,media_dir, media_dir+"/"+organised_dir_sanitised,(180,180),6,10)
     root.mainloop()
 
 
