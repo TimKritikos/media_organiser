@@ -275,6 +275,8 @@ class MediaSelectorApp:
         self.danger_style.map("Danger.TButton",background=[('hover', '#cf3838')])
         self.danger_style.configure("Normal.TButton", background="#82b5d1")
         self.danger_style.map("Normal.TButton",background=[('hover', '#3899cf')])
+        self.danger_style.configure("Clear.TButton", background="#424242", foreground='#DDDDDD')
+        self.danger_style.map("Clear.TButton",background=[('hover', '#000000')])
 
         self.execute_button = ttk.Button(self.toolbar, text="Execute", command=self.execute_shell, style="Danger.TButton")
         self.execute_button.pack(side=tk.LEFT,padx=(4,2),pady=2)
@@ -282,7 +284,7 @@ class MediaSelectorApp:
         self.add_to_script_button = ttk.Button(self.toolbar, text="Add to script", command=self.add_to_script, style="Normal.TButton")
         self.add_to_script_button.pack(side=tk.LEFT,padx=(2,2),pady=2)
 
-        self.clear_script_button = ttk.Button(self.toolbar, text="Clear script", command=self.clear_shell_script)
+        self.clear_script_button = ttk.Button(self.toolbar, text="Clear script", command=self.clear_shell_script, style="Clear.TButton")
         self.clear_script_button.pack(side=tk.LEFT,padx=2)
 
         ttk.Separator(self.toolbar, orient='vertical').pack(side=tk.LEFT,padx=(5,5),fill=tk.Y)
