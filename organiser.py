@@ -214,6 +214,25 @@ class ShellScriptWindow(tk.Frame):
         self.text_widget.insert(tk.END, "#!/bin/sh\nset -eu\n")
         self.text_widget.config(state=tk.DISABLED)
 
+class  ProjectList(tk.Frame):
+    def __init__(self, root, destinations):
+        super().__init__(root, bd=2, relief="sunken")
+
+        self.dir_listbox = tk.Listbox(self, width=60)
+        self.dir_listbox.pack(fill="both", expand=True)
+
+        self.dir_listbox.delete(0, tk.END)
+        dirs = [d for d in os.listdir(destinations[0]) if os.path.isdir(os.path.join(destinations[0], d))]
+        dirs.sort()
+        for d in dirs:
+            self.dir_listbox.insert(tk.END, d)
+    def get_selected_dir(self):
+        selection = self.dir_listbox.curselection()
+        if not selection:
+            return None
+        else:
+            return self.dir_listbox.get(selection[0])
+
 class MediaSelectorApp:
     def __init__(self,root, input_data, thumb_size=(180,180), item_border_size=6, item_padding=10):
 
@@ -288,12 +307,10 @@ class MediaSelectorApp:
         grid_and_toolbar.grid_columnconfigure(0, weight=1)
 
         # Right panel: project listing
-        self.dir_frame = tk.Frame(self.list_grid_pane, bd=2, relief="sunken")
-        self.dir_listbox = tk.Listbox(self.dir_frame, width=60)
-        self.dir_listbox.pack(fill="both", expand=True)
+        self.ProjectList=ProjectList(self.list_grid_pane, self.input_data["destinations"])
 
         self.list_grid_pane.add(grid_and_toolbar, weight=1)
-        self.list_grid_pane.add(self.dir_frame, weight=1)
+        self.list_grid_pane.add(self.ProjectList, weight=1)
 
 
         self.shell_script_window=ShellScriptWindow(self.upper_and_shell_pane)
@@ -310,9 +327,6 @@ class MediaSelectorApp:
 
         self.selected_items.register_callback(self.update_counter)
         self.selected_items.update() # Write initial text on the counter label
-
-        # Load directories into listbox
-        self.load_directories()
 
     def clear_shell_script(self):
         self.shell_script_window.clear()
@@ -337,20 +351,11 @@ class MediaSelectorApp:
             else:
                 i.select()
 
-    def load_directories(self):
-        self.dir_listbox.delete(0, tk.END)
-        dirs = [d for d in os.listdir(self.input_data["destinations"][0]) if os.path.isdir(os.path.join(self.input_data["destinations"][0], d))]
-        dirs.sort()
-        for d in dirs:
-            self.dir_listbox.insert(tk.END, d)
-
     def add_to_script(self):
-        selection = self.dir_listbox.curselection()
-        if not selection:
+        selected_dir = self.ProjectList.get_selected_dir()
+        if not selected_dir:
             messagebox.showinfo("No project selection", "No project selection")
             return
-
-        selected_dir = self.dir_listbox.get(selection[0])
 
         if not self.selected_items:
             messagebox.showinfo("No items selected.", "No items selected.")
