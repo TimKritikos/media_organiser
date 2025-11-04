@@ -180,8 +180,7 @@ class ShellScriptWindow(tk.Frame):
     def __init__(self, root):
         super().__init__(root)
         self.text_widget=tk.Text(self, bg='black', fg='white')
-        self.text_widget.insert(tk.END, "#!/bin/sh\nset -eu\n")
-        self.text_widget.config(state=tk.DISABLED)
+        self.clear()
         self.text_widget.grid(row=0,column=0,sticky='nswe')
         self.script_lines=set()
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.text_widget.yview)
@@ -207,6 +206,13 @@ class ShellScriptWindow(tk.Frame):
             self.text_widget.config(state=tk.DISABLED)
             self.script_lines.add(line)
             self.text_widget.see("end")
+    def get_script(self):
+        return self.text_widget.get("1.0",tk.END)
+    def clear(self):
+        self.text_widget.config(state=tk.NORMAL)
+        self.text_widget.delete(1.0,tk.END)
+        self.text_widget.insert(tk.END, "#!/bin/sh\nset -eu\n")
+        self.text_widget.config(state=tk.DISABLED)
 
 class MediaSelectorApp:
     def __init__(self,root, input_data, thumb_size=(180,180), item_border_size=6, item_padding=10):
@@ -245,16 +251,36 @@ class MediaSelectorApp:
         # Toolbar
         self.toolbar=tk.Frame(grid_and_toolbar, bd=3)
         self.toolbar.config(relief="groove")
-        self.add_to_script_button = tk.Button(self.toolbar, text="Add to script", command=self.add_to_script)
+        self.danger_style = ttk.Style()
+        self.danger_style.configure("Danger.TButton", background="#d18282")
+        self.danger_style.map("Danger.TButton",background=[('hover', '#cf3838')])
+        self.danger_style.configure("Normal.TButton", background="#82b5d1")
+        self.danger_style.map("Normal.TButton",background=[('hover', '#3899cf')])
+
+        self.execute_button = ttk.Button(self.toolbar, text="Execute", command=self.execute_shell, style="Danger.TButton")
+        self.execute_button.pack(side=tk.LEFT,padx=(4,2),pady=2)
+
+        self.add_to_script_button = ttk.Button(self.toolbar, text="Add to script", command=self.add_to_script, style="Normal.TButton")
+        self.add_to_script_button.pack(side=tk.LEFT,padx=(2,2),pady=2)
+
+        self.clear_script_button = ttk.Button(self.toolbar, text="Clear script", command=self.clear_shell_script)
+        self.clear_script_button.pack(side=tk.LEFT,padx=2)
+
+        ttk.Separator(self.toolbar, orient='vertical').pack(side=tk.LEFT,padx=(5,5),fill=tk.Y)
+
         self.select_all = tk.Button(self.toolbar, text="Select All", command=self.select_all)
-        self.select_none = tk.Button(self.toolbar, text="Select None", command=self.select_none)
-        self.select_invert = tk.Button(self.toolbar, text="Invert selections", command=self.select_invert)
-        self.item_count = tk.Label(self.toolbar, text="")
-        self.add_to_script_button.pack(side=tk.LEFT,padx=(4,2),pady=2)
         self.select_all.pack(side=tk.LEFT,padx=2)
+
+        self.select_none = tk.Button(self.toolbar, text="Select None", command=self.select_none)
         self.select_none.pack(side=tk.LEFT,padx=2)
+
+        self.select_invert = tk.Button(self.toolbar, text="Invert selections", command=self.select_invert)
         self.select_invert.pack(side=tk.LEFT,padx=2)
+
+        self.item_count = tk.Label(self.toolbar, text="")
         self.item_count.pack(side=tk.RIGHT,padx=2)
+
+        ttk.Separator(self.toolbar, orient='vertical').pack(side=tk.RIGHT,padx=(5,5),fill=tk.Y)
 
         self.grid_frame.grid(row=0,column=0,sticky='nswe')
         self.toolbar.grid(row=1,column=0,sticky='we')
@@ -288,6 +314,12 @@ class MediaSelectorApp:
         # Load directories into listbox
         self.load_directories()
 
+    def clear_shell_script(self):
+        self.shell_script_window.clear()
+    def execute_shell(self):
+        shell_script_string = self.shell_script_window.get_script()
+        data=subprocess.run(["bash","-c", shell_script_string])
+        self.shell_script_window.clear()
     def update_counter(self,count):
         self.item_count.config(text="Item count: "+str(count))
 
