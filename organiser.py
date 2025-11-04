@@ -180,12 +180,12 @@ class ShellScriptWindow(tk.Frame):
     def __init__(self, root):
         super().__init__(root)
         self.text_widget=tk.Text(self, bg='black', fg='white')
-        self.clear()
         self.text_widget.grid(row=0,column=0,sticky='nswe')
         self.script_lines=set()
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.text_widget.yview)
         self.text_widget['yscrollcommand'] = self.scrollbar.set
         self.scrollbar.grid(row=0,column=1,sticky='ns')
+        self.clear()
     def add_file(self, file, project_dir,input_data):
         source_dir=input_data["sources"][0]
         destination_dir=input_data["destinations"][0]
@@ -213,6 +213,7 @@ class ShellScriptWindow(tk.Frame):
         self.text_widget.delete(1.0,tk.END)
         self.text_widget.insert(tk.END, "#!/bin/sh\nset -eu\n")
         self.text_widget.config(state=tk.DISABLED)
+        self.script_lines.clear()
 
 class  ProjectList(tk.Frame):
     def __init__(self, root, destinations):
