@@ -12,6 +12,9 @@ from tkinter import ttk
 #TODO: Fix scrolling for my WM
 #TODO: add a file view mode
 #TODO: add multiple source and destinations support
+#TODO: Add tools to search the destination dir
+#TODO: Add tools to make projects
+#TODO: Sort items by create date in the grid
 
 class CmdLineError(Exception):
     pass
@@ -191,7 +194,7 @@ class ShellScriptWindow(tk.Frame):
         self.clear()
 
     def add_file(self, file, destination_project_dir, input_data):
-        line = "ln -s '"+os.path.relpath(input_data["sources"][0]+file, destination_project_dir)+"' '"+destination_project_dir+"'\n"
+        line = "ln -s '"+os.path.relpath(os.path.join(input_data["sources"][0],file), destination_project_dir)+"' '"+destination_project_dir+"'\n"
         if line not in self.script_written_lines:
             self.text_widget.config(state=tk.NORMAL)
             self.text_widget.insert(tk.END, line)
@@ -229,32 +232,48 @@ class  ProjectList(tk.Frame):
             return self.dir_listbox.get(selection[0])
 
 
-class MediaSelectorApp:
-    def __init__(self, root, input_data, thumb_size=(180, 180), item_border_size=6, item_padding=10):
+def normalise_and_check(paths, check, string_to_print):
+    output=[]
+    for i in paths:
+        normalised=os.path.normpath(i)
+        if check(normalised):
+            output.append(normalised)
+        else:
+            raise ("Failed to normalise "+string_to_print+" '"+i+"'")
+    return output
 
-        for interface in input_data["interfaces"]:
+
+class MediaSelectorApp:
+    def __init__(self, root, unsanitised_input_data, thumb_size=(180, 180), item_border_size=6, item_padding=10):
+
+        self.input_data = {
+            "interfaces": normalise_and_check(unsanitised_input_data["interfaces"],os.path.isfile,"interface"),
+            "sources": normalise_and_check(unsanitised_input_data["sources"],os.path.isdir,"source"),
+            "destinations": normalise_and_check(unsanitised_input_data["destinations"],os.path.isdir,"destination"),
+            "destinations_append": unsanitised_input_data["destinations_append"],
+        }
+
+        for interface in self.input_data["interfaces"]:
             if not os.path.isfile(interface):
                 raise CmdLineError("Following provided interface file doesn\'t exist '"+interface+"'")
             if not os.access(interface, os.X_OK):
                 raise CmdLineError("Following provided interface file isn\'t executable '"+interface+"'")
-        for source in input_data["sources"]:
+        for source in self.input_data["sources"]:
             if not os.path.isdir(source):
                 raise CmdLineError("Following provided source directory doesn\'t exist: '"+source+"'")
-        for destination in input_data["destinations"]:
+        for destination in self.input_data["destinations"]:
             if not os.path.isdir(destination):
                 raise CmdLineError("Following provided destination directory doesn\'t exist '"+destination+"'")
 
-        if len(input_data["sources"]) != len(input_data["interfaces"]) and len(input_data["interfaces"]) != 1:
+        if len(self.input_data["sources"]) != len(self.input_data["interfaces"]) and len(self.input_data["interfaces"]) != 1:
             raise CmdLineError("More than one instances of the interface flag must match the number of instances of the source flag to match each interface in the order they appear in the command line to each source in the order they appear in the command line")
 
-        if len(input_data["sources"]) != 1 or len(input_data["destinations"]) != 1:
+        if len(self.input_data["sources"]) != 1 or len(self.input_data["destinations"]) != 1:
             raise CmdLineError("Multiple source directories or destination directories aren't implemented yet")
 
-        self.input_data = input_data
         self.selected_items = CountCallbackSet()  # set of selected file paths
 
         root.title("MEDIA organiser")
-
 
         self.upper_and_shell_pane = ttk.PanedWindow(root, orient=tk.VERTICAL)
 
@@ -262,7 +281,7 @@ class MediaSelectorApp:
 
         grid_and_toolbar = tk.Frame(self.list_grid_pane)
 
-        self.ItemGrid = ItemGrid(grid_and_toolbar, thumb_size, item_border_size, item_padding, self.selected_items, input_data)
+        self.ItemGrid = ItemGrid(grid_and_toolbar, thumb_size, item_border_size, item_padding, self.selected_items, self.input_data)
 
         self.toolbar = tk.Frame(grid_and_toolbar, bd=3)
         self.toolbar.config(relief="groove")
