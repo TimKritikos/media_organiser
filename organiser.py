@@ -10,6 +10,8 @@ from tkinter import ttk
 
 class CmdLineError(Exception):
     pass
+class DoubleSlash(Exception):
+    pass
 
 class CountCallbackSet:
     def __init__(self):
@@ -36,7 +38,7 @@ class Item(tk.Frame):
     def __init__(self, root, item_data,  selected_items, input_data, input_data_source_index, thumb_size, bg_color, select_color, **kwargs):
         super().__init__(root,**kwargs)
 
-        self.filename_path=input_data["sources"][input_data_source_index]+"/"+item_data["filename"]
+        self.filename_path=os.path.join(input_data["sources"][input_data_source_index],item_data["filename"])
 
         if not self.filename_path or not os.path.exists(self.filename_path):
             print("ERROR: file in json from source media interface executable couldn't be found")
@@ -187,19 +189,12 @@ class ShellScriptWindow(tk.Frame):
         self.scrollbar.grid(row=0,column=1,sticky='ns')
         self.clear()
     def add_file(self, file, project_dir,input_data):
-        source_dir=input_data["sources"][0]
-        destination_dir=input_data["destinations"][0]
-        if destination_dir[-1]!='/':
-            destination_dir=destination_dir+'/'
-        destination_append=input_data["destinations_append"]
-        if destination_append[-1]!='/':
-            destination_append=destination_append+'/'
-        if destination_append[0]!='/':
-            destination_append='/'+destination_append
-        destination_dir=destination_dir+project_dir+destination_append
+        destination_dir=os.path.join(input_data["destinations"][0],project_dir,input_data["destinations_append"],'.')
         if not os.path.isdir(destination_dir):
             raise FileNotFound
-        line="ln -s '"+os.path.relpath(source_dir+file,destination_dir)+"' '"+destination_dir+"'\n"
+        if destination_dir.find('//') != -1:
+            raise DoubleSlash("os.path.join created a path with tow slashes")
+        line="ln -s '"+os.path.relpath(input_data["sources"][0]+file,destination_dir)+"' '"+destination_dir+"'\n"
         if line not in self.script_lines:
             self.text_widget.config(state=tk.NORMAL)
             self.text_widget.insert(tk.END, line)
@@ -372,15 +367,9 @@ class MediaSelectorApp:
 
 def load_interface_data(input_data , source_number, query, arg=None):
     #Convert the relative or absolute paths to the paths relative to the source dir that the interface expects
-    pass_id=input_data["sources"][source_number]
-    if pass_id[-1]=='/':
-        pass_id=pass_id.rstrip("/")
-    pass_id=pass_id.split('/')[-1]
+    pass_id=os.path.basename(os.path.normpath(input_data["sources"][source_number]))
     if arg!=None:
-        arg=arg.removeprefix(input_data["sources"][0])
-        if arg[0]=='/':
-            arg=arg.removeprefix('/')
-
+        arg=os.path.relpath(arg,input_data["sources"][source_number])
     match query:
         case 'list-thumbnails':
             data=json.loads(subprocess.check_output([input_data["interfaces"][source_number], '-l', pass_id]))
