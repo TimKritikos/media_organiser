@@ -9,7 +9,6 @@ import argparse
 from tkinter import ttk
 
 #TODO: Check if a file is already linked in the destination directory
-#TODO: Fix scrolling for my WM
 #TODO: add a file view mode
 #TODO: add multiple source and destinations support
 #TODO: Add tools to search the destination dir
@@ -50,7 +49,7 @@ class CountCallbackSet:
 
 
 class Item(tk.Frame):
-    def __init__(self, root, item_data, selected_items, input_data, input_data_source_index, thumb_size, bg_color, select_color, **kwargs):
+    def __init__(self, root, item_data, selected_items, input_data, input_data_source_index, thumb_size, bg_color, select_color, enter_callback, leave_callback, **kwargs):
         super().__init__(root, **kwargs)
 
         self.selected_items = selected_items
@@ -84,6 +83,8 @@ class Item(tk.Frame):
         for i in (self.image, self.caption, self):
             i.bind("<Button-1>", self.on_click)
             i.bind("<B1-Motion>", self.on_drag)
+            i.bind("<Enter>", enter_callback)
+            i.bind("<Leave>", leave_callback)
 
     def deselect(self):
         for i in (self.image, self.caption, self):
@@ -145,12 +146,13 @@ class ItemGrid(tk.Frame):
         self.scrollbar.pack(side="right", fill="y")
 
         for item in self.item_list["file_list"]:
-            self.items.append(Item(self.item_grid, item, selected_items, input_data, 0, self.thumb_size, root.cget('bg'), "#5293fa", bd=self.item_border_size))
+            self.items.append(Item(self.item_grid, item, selected_items, input_data, 0, self.thumb_size, root.cget('bg'), "#5293fa", self.bind_grid_scroll, self.unbind_grid_scroll, bd=self.item_border_size))
 
         self.item_grid.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", lambda x: self.canvas.after_idle(self.update_item_layout))
-        self.canvas.bind("<Enter>", self.bind_grid_scroll)
-        self.canvas.bind("<Leave>", self.unbind_grid_scroll)
+        for i in (self.canvas,self.item_grid):
+            i.bind("<Enter>", self.bind_grid_scroll)
+            i.bind("<Leave>", self.unbind_grid_scroll)
 
     def bind_grid_scroll(self, event):
         self.canvas.bind_all("<Button-4>", self.scroll_steps)
