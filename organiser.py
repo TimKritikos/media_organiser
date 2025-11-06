@@ -14,6 +14,8 @@ from tkinter import ttk
 #TODO: Add tools to search the destination dir
 #TODO: Add tools to make projects
 #TODO: Sort items by create date in the grid
+#TODO: add shift select/deselect with click only on first and last
+#TODO: Add second thread for loading images to bring up the UI faster
 
 class CmdLineError(Exception):
     pass
@@ -49,7 +51,7 @@ class CountCallbackSet:
 
 
 class Item(tk.Frame):
-    def __init__(self, root, item_data, selected_items, input_data, input_data_source_index, thumb_size, bg_color, select_color, enter_callback, leave_callback, **kwargs):
+    def __init__(self, root, item_data, selected_items, input_data, input_data_source_index, thumb_size, bg_color, select_color, enter_callback, leave_callback, full_screen_callback, **kwargs):
         super().__init__(root, **kwargs)
 
         self.selected_items = selected_items
@@ -57,6 +59,7 @@ class Item(tk.Frame):
         self.bg_color = bg_color
         self.select_color = select_color
         self.filename_path = os.path.join(input_data["sources"][input_data_source_index], item_data["filename"])
+        self.full_screen_callback=full_screen_callback
 
         if not self.filename_path or not os.path.exists(self.filename_path):
             print("ERROR: file in json from source media interface executable couldn't be found")
@@ -85,6 +88,11 @@ class Item(tk.Frame):
             i.bind("<B1-Motion>", self.on_drag)
             i.bind("<Enter>", enter_callback)
             i.bind("<Leave>", leave_callback)
+            i.bind("<Key>", self.key_callback)
+
+    def key_callback(self,event):
+        if event.char == '\r' :
+            self.full_screen_callback(self.filename_path)
 
     def deselect(self):
         for i in (self.image, self.caption, self):
@@ -124,8 +132,54 @@ class Item(tk.Frame):
             self.dragged_over.add(widget)
 
 
+class FullScreenItem(tk.Frame):
+    def __init__(self, root, input_data,filename, exit_callback, **kwargs):
+        super().__init__(root, **kwargs)
+
+        self.best_file=None
+        self.exit_callback=exit_callback
+
+        data=load_interface_data(input_data,0,'get-related',arg=filename)
+
+        for file in data["file_list"]:
+            if file["item_type"] == file["file_type"]:
+                self.best_file=file
+
+        if self.best_file == None:
+            raise ValueError
+
+        self.best_file_path = os.path.join(input_data["sources"][0], self.best_file["filename"])
+
+        self.bind("<Configure>", lambda x: self.after_idle(self.update_size))
+        self.bind("<Key>", self.key_callback)
+        self.bind("<Enter>", lambda a: self.focus_set())
+
+    def key_callback(self, event):
+        if event.char == '\r':
+            self.exit_callback()
+
+    def update_size(self):
+        frame_width = self.winfo_width()
+        frame_height = self.winfo_height()
+        thumb_size=(frame_width, frame_height)
+        if self.best_file["item_type"] in ["image-preview", "image"]:
+            try:
+                self.img = Image.open(self.best_file_path).convert("RGB")
+                self.img.thumbnail(thumb_size)
+                self.photo_obj = ImageTk.PhotoImage(self.img)
+            except Exception:
+                self.img = Image.new("RGB", thumb_size, (100, 100, 100))
+                self.photo_obj = ImageTk.PhotoImage(self.img)
+        else:
+            self.img = Image.new("RGB", thumb_size, (60, 60, 60))
+            self.photo_obj = ImageTk.PhotoImage(self.img)
+
+        self.image = tk.Label(self, image=self.photo_obj, borderwidth=0)
+        self.image.grid(row=0,column=0,sticky='nswe')
+
+
 class ItemGrid(tk.Frame):
-    def __init__(self, root, thumb_size, item_border_size, item_padding, selected_items, input_data):
+    def __init__(self, root, thumb_size, item_border_size, item_padding, selected_items, input_data, full_screen_callback):
         super().__init__(root)
 
         self.thumb_size = thumb_size
@@ -146,7 +200,7 @@ class ItemGrid(tk.Frame):
         self.scrollbar.pack(side="right", fill="y")
 
         for item in self.item_list["file_list"]:
-            self.items.append(Item(self.item_grid, item, selected_items, input_data, 0, self.thumb_size, root.cget('bg'), "#5293fa", self.bind_grid_scroll, self.unbind_grid_scroll, bd=self.item_border_size))
+            self.items.append(Item(self.item_grid, item, selected_items, input_data, 0, self.thumb_size, root.cget('bg'), "#5293fa", self.bind_grid_scroll, self.unbind_grid_scroll, full_screen_callback, bd=self.item_border_size))
 
         self.item_grid.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", lambda x: self.canvas.after_idle(self.update_item_layout))
@@ -157,6 +211,7 @@ class ItemGrid(tk.Frame):
     def bind_grid_scroll(self, event):
         self.canvas.bind_all("<Button-4>", self.scroll_steps)
         self.canvas.bind_all("<Button-5>", self.scroll_steps)
+        event.widget.focus_set()
 
     def unbind_grid_scroll(self, event):
         self.canvas.unbind_all("<Button-4>")
@@ -281,11 +336,11 @@ class MediaSelectorApp:
 
         self.list_grid_pane = ttk.PanedWindow(self.upper_and_shell_pane, orient=tk.HORIZONTAL)
 
-        grid_and_toolbar = tk.Frame(self.list_grid_pane)
+        self.grid_and_toolbar = tk.Frame(self.list_grid_pane)
 
-        self.ItemGrid = ItemGrid(grid_and_toolbar, thumb_size, item_border_size, item_padding, self.selected_items, self.input_data)
+        self.ItemGrid = ItemGrid(self.grid_and_toolbar, thumb_size, item_border_size, item_padding, self.selected_items, self.input_data, self.enter_full_screen)
 
-        self.toolbar = tk.Frame(grid_and_toolbar, bd=3)
+        self.toolbar = tk.Frame(self.grid_and_toolbar, bd=3)
         self.toolbar.config(relief="groove")
 
         self.danger_style = ttk.Style()
@@ -323,12 +378,12 @@ class MediaSelectorApp:
 
         self.ItemGrid.grid(row=0, column=0, sticky='nswe')
         self.toolbar.grid(row=1, column=0, sticky='we')
-        grid_and_toolbar.grid_rowconfigure(0, weight=1)
-        grid_and_toolbar.grid_columnconfigure(0, weight=1)
+        self.grid_and_toolbar.grid_rowconfigure(0, weight=1)
+        self.grid_and_toolbar.grid_columnconfigure(0, weight=1)
 
         self.ProjectList = ProjectList(self.list_grid_pane, self.input_data["destinations"])
 
-        self.list_grid_pane.add(grid_and_toolbar, weight=1)
+        self.list_grid_pane.add(self.grid_and_toolbar, weight=1)
         self.list_grid_pane.add(self.ProjectList, weight=1)
 
         self.ShellScriptWindow = ShellScriptWindow(self.upper_and_shell_pane)
@@ -345,6 +400,16 @@ class MediaSelectorApp:
 
         self.selected_items.register_callback(self.update_counter)
         self.selected_items.call_callbacks() # Write initial text on the counter label
+
+    def enter_full_screen(self, path):
+        self.ItemGrid.grid_forget()
+        self.FullScreenItem=FullScreenItem(self.grid_and_toolbar,self.input_data,path,self.exit_full_screen)
+        self.FullScreenItem.grid(row=0,column=0,sticky='nswe')
+
+    def exit_full_screen(self):
+        self.FullScreenItem.grid_forget()
+        self.FullScreenItem.destroy()
+        self.ItemGrid.grid(row=0,column=0,sticky='nswe')
 
     def clear_shell_script(self):
         self.ShellScriptWindow.clear()
