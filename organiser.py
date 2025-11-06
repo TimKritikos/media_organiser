@@ -601,7 +601,7 @@ def main():
         "interfaces": args.interface,
         "sources": args.source,
         "destinations": args.destination,
-        "destinations_append": args.destination_append,
+        "destinations_append": (args.destination_append if args.destination_append is not None else ""),
     }
 
     try:
