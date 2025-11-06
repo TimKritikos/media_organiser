@@ -142,6 +142,7 @@ class FullScreenItem(tk.Frame):
         self.best_file=None
         self.exit_callback=exit_callback
         self.image = None
+        self.old_image_size=(0, 0)
 
         data=load_interface_data(input_data,0,'get-related',arg=filename)
 
@@ -249,22 +250,24 @@ class FullScreenItem(tk.Frame):
         frame_width = self.image_frame.winfo_width()
         frame_height = self.image_frame.winfo_height()
         image_size=(frame_width, frame_height)
-        if self.image:
-            self.image.destroy()
-        if self.best_file["item_type"] in ["image-preview", "image"]:
-            try:
-                self.img = Image.open(self.best_file_path).convert("RGB")
-                self.img.thumbnail(image_size)
+        if image_size != self.old_image_size:
+            self.old_image_size=image_size
+            if self.image:
+                self.image.destroy()
+            if self.best_file["item_type"] in ["image-preview", "image"]:
+                try:
+                    self.img = Image.open(self.best_file_path).convert("RGB")
+                    self.img.thumbnail(image_size)
+                    self.photo_obj = ImageTk.PhotoImage(self.img)
+                except Exception:
+                    self.img = Image.new("RGB", image_size, (100, 100, 100))
+                    self.photo_obj = ImageTk.PhotoImage(self.img)
+            else:
+                self.img = Image.new("RGB", image_size, (60, 60, 60))
                 self.photo_obj = ImageTk.PhotoImage(self.img)
-            except Exception:
-                self.img = Image.new("RGB", image_size, (100, 100, 100))
-                self.photo_obj = ImageTk.PhotoImage(self.img)
-        else:
-            self.img = Image.new("RGB", image_size, (60, 60, 60))
-            self.photo_obj = ImageTk.PhotoImage(self.img)
 
-        self.image = tk.Label(self.image_frame, image=self.photo_obj, borderwidth=0)
-        self.image.grid(row=0, column=0, sticky='nw')
+            self.image = tk.Label(self.image_frame, image=self.photo_obj, borderwidth=0)
+            self.image.grid(row=0, column=0, sticky='nw')
 
 
 class ItemGrid(tk.Frame):
