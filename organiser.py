@@ -62,7 +62,7 @@ class Item(tk.Frame):
         self.bg_color = bg_color
         self.select_color = select_color
         self.filename_path = os.path.join(input_data["sources"][input_data_source_index], item_data["filename"])
-        self.full_screen_callback=full_screen_callback
+        self.full_screen_callback = full_screen_callback
 
         if not self.filename_path or not os.path.exists(self.filename_path):
             print("ERROR: file in json from source media interface executable couldn't be found")
@@ -93,7 +93,7 @@ class Item(tk.Frame):
             i.bind("<Leave>", leave_callback)
             i.bind("<Key>", self.key_callback)
 
-    def key_callback(self,event):
+    def key_callback(self, event):
         if event.char == '\r' :
             self.full_screen_callback(self.filename_path)
 
@@ -136,19 +136,19 @@ class Item(tk.Frame):
 
 
 class FullScreenItem(tk.Frame):
-    def __init__(self, root, input_data,filename, exit_callback, **kwargs):
+    def __init__(self, root, input_data, filename, exit_callback, **kwargs):
         super().__init__(root, **kwargs)
 
-        self.best_file=None
-        self.exit_callback=exit_callback
+        self.best_file = None
+        self.exit_callback = exit_callback
         self.image = None
-        self.old_image_size=(0, 0)
+        self.old_image_size = (0, 0)
 
-        data=load_interface_data(input_data,0,'get-related',arg=filename)
+        data = load_interface_data(input_data, 0, 'get-related', arg=filename)
 
         for file in data["file_list"]:
             if file["item_type"] == file["file_type"]:
-                self.best_file=file
+                self.best_file = file
 
         if self.best_file == None:
             raise ValueError
@@ -171,11 +171,11 @@ class FullScreenItem(tk.Frame):
             try:
                 create_date_notz = datetime.strptime(my_image.datetime, '%Y:%m:%d %H:%M:%S')
                 create_date = create_date_notz.replace(tzinfo=timezone.utc)
-                create_date_str=create_date.strftime("%Y-%m-%d")
-                create_time_str=create_date.strftime("%H:%M:%S")
+                create_date_str = create_date.strftime("%Y-%m-%d")
+                create_time_str = create_date.strftime("%H:%M:%S")
             except AttributeError:
-                create_date_str=""
-                create_time_str=""
+                create_date_str = ""
+                create_time_str = ""
 
             #Process shutter speed
             try:
@@ -248,9 +248,9 @@ class FullScreenItem(tk.Frame):
     def update_size(self):
         frame_width = self.image_frame.winfo_width()
         frame_height = self.image_frame.winfo_height()
-        image_size=(frame_width, frame_height)
+        image_size = (frame_width, frame_height)
         if image_size != self.old_image_size:
-            self.old_image_size=image_size
+            self.old_image_size = image_size
             if self.image:
                 self.image.destroy()
             if self.best_file["item_type"] in ["image-preview", "image"]:
@@ -295,7 +295,7 @@ class ItemGrid(tk.Frame):
 
         self.item_grid.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", lambda x: self.canvas.after_idle(self.update_item_layout))
-        for i in (self.canvas,self.item_grid):
+        for i in (self.canvas, self.item_grid):
             i.bind("<Enter>", self.bind_grid_scroll)
             i.bind("<Leave>", self.unbind_grid_scroll)
 
@@ -342,7 +342,7 @@ class ShellScriptWindow(tk.Frame):
         self.clear()
 
     def add_file(self, file, destination_project_dir, input_data):
-        line = "ln -s '"+os.path.relpath(os.path.join(input_data["sources"][0],file), destination_project_dir)+"' '"+destination_project_dir+"'\n"
+        line = "ln -s '"+os.path.relpath(os.path.join(input_data["sources"][0], file), destination_project_dir)+"' '"+destination_project_dir+"'\n"
         if line not in self.script_written_lines:
             self.text_widget.config(state=tk.NORMAL)
             self.text_widget.insert(tk.END, line)
@@ -381,9 +381,9 @@ class  ProjectList(tk.Frame):
 
 
 def normalise_and_check(paths, check, string_to_print):
-    output=[]
+    output = []
     for i in paths:
-        normalised=os.path.normpath(i)
+        normalised = os.path.normpath(i)
         if check(normalised):
             output.append(normalised)
         else:
@@ -395,9 +395,9 @@ class MediaSelectorApp:
     def __init__(self, root, unsanitised_input_data, thumb_size=(180, 180), item_border_size=6, item_padding=10):
 
         self.input_data = {
-            "interfaces": normalise_and_check(unsanitised_input_data["interfaces"],os.path.isfile,"interface"),
-            "sources": normalise_and_check(unsanitised_input_data["sources"],os.path.isdir,"source"),
-            "destinations": normalise_and_check(unsanitised_input_data["destinations"],os.path.isdir,"destination"),
+            "interfaces": normalise_and_check(unsanitised_input_data["interfaces"], os.path.isfile,"interface"),
+            "sources": normalise_and_check(unsanitised_input_data["sources"], os.path.isdir,"source"),
+            "destinations": normalise_and_check(unsanitised_input_data["destinations"], os.path.isdir,"destination"),
             "destinations_append": unsanitised_input_data["destinations_append"],
         }
 
@@ -494,13 +494,13 @@ class MediaSelectorApp:
 
     def enter_full_screen(self, path):
         self.ItemGrid.grid_forget()
-        self.FullScreenItem=FullScreenItem(self.grid_and_toolbar,self.input_data,path,self.exit_full_screen)
-        self.FullScreenItem.grid(row=0,column=0,sticky='nswe')
+        self.FullScreenItem = FullScreenItem(self.grid_and_toolbar, self.input_data, path, self.exit_full_screen)
+        self.FullScreenItem.grid(row=0, column=0, sticky='nswe')
 
     def exit_full_screen(self):
         self.FullScreenItem.grid_forget()
         self.FullScreenItem.destroy()
-        self.ItemGrid.grid(row=0,column=0,sticky='nswe')
+        self.ItemGrid.grid(row=0, column=0, sticky='nswe')
 
     def clear_shell_script(self):
         self.ShellScriptWindow.clear()
