@@ -179,7 +179,6 @@ class FullScreenItem(tk.Frame):
 
             #Process shutter speed
             try:
-                a=my_image.lens_make
                 if my_image.exposure_time < 1:
                     shutter_str = "1/"+str(1/my_image.exposure_time)+" s"
                 else:
