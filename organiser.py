@@ -1,6 +1,9 @@
 import json
 import os
+from datetime import datetime
+from datetime import timezone
 import sys
+from exif import Image as exifImage
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
@@ -138,6 +141,7 @@ class FullScreenItem(tk.Frame):
 
         self.best_file=None
         self.exit_callback=exit_callback
+        self.image = None
 
         data=load_interface_data(input_data,0,'get-related',arg=filename)
 
@@ -150,32 +154,117 @@ class FullScreenItem(tk.Frame):
 
         self.best_file_path = os.path.join(input_data["sources"][0], self.best_file["filename"])
 
-        self.bind("<Configure>", lambda x: self.after_idle(self.update_size))
-        self.bind("<Key>", self.key_callback)
-        self.bind("<Enter>", lambda a: self.focus_set())
+        self.image_frame = tk.Frame(self)
+        self.metadata_frame = tk.Frame(self)
+
+        with open(self.best_file_path, 'rb') as image_file:
+            my_image = exifImage(self.best_file_path)
+
+        self.metadata_labels = []
+        if not my_image.has_exif:
+            self.no_exif = tk.Label(self.metadata_frame, text="File doesn't have exif metadata")
+            self.no_exif.grid(row=0, column=0)
+            self.attach_binds(self.no_exif)
+        else:
+            #Process create date
+            try:
+                create_date_notz = datetime.strptime(my_image.datetime, '%Y:%m:%d %H:%M:%S')
+                create_date = create_date_notz.replace(tzinfo=timezone.utc)
+                create_date_str=create_date.strftime("%Y-%m-%d")
+                create_time_str=create_date.strftime("%H:%M:%S")
+            except AttributeError:
+                create_date_str=""
+                create_time_str=""
+
+            #Process shutter speed
+            try:
+                a=my_image.lens_make
+                if my_image.exposure_time < 1:
+                    shutter_str = "1/"+str(1/my_image.exposure_time)+" s"
+                else:
+                    shutter_str = str(my_image.exposure_time)+" s"
+            except AttributeError:
+                shutter_str = ""
+
+            self.metadata_canvas = tk.Canvas(self.metadata_frame, highlightthickness=0, width=220)
+            self.metadata_canvas.grid(row=0, column=0, sticky='nswe')
+            self.metadata_canvas.grid_rowconfigure(0, weight=1)
+            self.metadata_canvas.grid_columnconfigure(0, weight=1)
+
+            metadata_key_x_end = 120
+            metadata_value_x_start = 125
+            metadata_y_start = 20
+            metadata_y_step = 15
+
+            metadata = []
+            for key in ("f_number", "photographic_sensitivity", "focal_length_in_35mm_film", "make", "model", "lens_make", "lens_model", "flash"):
+                value = getattr(my_image, key, None)
+                metadata.append(value if value is not None else "")
+
+
+            for i, (key, value) in enumerate((
+                ("Create date:", create_date_str),
+                ("Create time:", create_time_str),
+                ( "Aperture:", "f"+str(metadata[0])),
+                ( "Shutter speed:", shutter_str),
+                ( "ISO:", str(metadata[1])),
+                ( "Focal Length (35mm):", str(metadata[2])+"mm"),
+                ( "Camera make:", metadata[3]),
+                ( "Camera name:", metadata[4]),
+                ( "Lens make:", metadata[5]),
+                ( "Lens model:", metadata[6]),
+                ( "Flash:", metadata[7])
+                )):
+                y = metadata_y_start + i * metadata_y_step
+
+                key_id = self.metadata_canvas.create_text(metadata_key_x_end, y, text=key, anchor="e", fill="#333")
+                val_id = self.metadata_canvas.create_text(metadata_value_x_start, y, text=value, anchor="w", fill="#000")
+
+            self.attach_binds(self.metadata_canvas)
+
+        self.image_frame.grid(row=0, column=0, sticky='nswe')
+        self.attach_binds(self.image_frame)
+
+        self.metadata_frame.grid(row=0, column=1, sticky='nse')
+        self.attach_binds(self.metadata_frame)
+
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        self.attach_binds(self)
+
+    def attach_binds(self, widget):
+        widget.bind("<Configure>", lambda x: self.after_idle(self.update_size))
+        widget.bind("<Key>", self.key_callback)
+        widget.bind("<Enter>", lambda x: x.widget.focus_set() )
+
+    def enter(self, event):
+        event.widget.focus_set()
 
     def key_callback(self, event):
         if event.char == '\r':
             self.exit_callback()
 
     def update_size(self):
-        frame_width = self.winfo_width()
-        frame_height = self.winfo_height()
-        thumb_size=(frame_width, frame_height)
+        frame_width = self.image_frame.winfo_width()
+        frame_height = self.image_frame.winfo_height()
+        image_size=(frame_width, frame_height)
+        if self.image:
+            self.image.destroy()
         if self.best_file["item_type"] in ["image-preview", "image"]:
             try:
                 self.img = Image.open(self.best_file_path).convert("RGB")
-                self.img.thumbnail(thumb_size)
+                self.img.thumbnail(image_size)
                 self.photo_obj = ImageTk.PhotoImage(self.img)
             except Exception:
-                self.img = Image.new("RGB", thumb_size, (100, 100, 100))
+                self.img = Image.new("RGB", image_size, (100, 100, 100))
                 self.photo_obj = ImageTk.PhotoImage(self.img)
         else:
-            self.img = Image.new("RGB", thumb_size, (60, 60, 60))
+            self.img = Image.new("RGB", image_size, (60, 60, 60))
             self.photo_obj = ImageTk.PhotoImage(self.img)
 
-        self.image = tk.Label(self, image=self.photo_obj, borderwidth=0)
-        self.image.grid(row=0,column=0,sticky='nswe')
+        self.image = tk.Label(self.image_frame, image=self.photo_obj, borderwidth=0)
+        self.image.grid(row=0, column=0, sticky='nw')
 
 
 class ItemGrid(tk.Frame):
