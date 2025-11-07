@@ -453,14 +453,14 @@ class MediaSelectorApp:
 
         ttk.Separator(self.toolbar, orient='vertical').pack(side=tk.LEFT, padx=(5, 5), fill=tk.Y)
 
-        self.select_all = tk.Button(self.toolbar, text="Select All", command=self.select_all)
-        self.select_all.pack(side=tk.LEFT, padx=2)
+        self.select_all_button = tk.Button(self.toolbar, text="Select All", command=self.select_all)
+        self.select_all_button.pack(side=tk.LEFT, padx=2)
 
-        self.select_none = tk.Button(self.toolbar, text="Select None", command=self.select_none)
-        self.select_none.pack(side=tk.LEFT, padx=2)
+        self.select_none_button = tk.Button(self.toolbar, text="Select None", command=self.select_none)
+        self.select_none_button.pack(side=tk.LEFT, padx=2)
 
-        self.select_invert = tk.Button(self.toolbar, text="Invert selections", command=self.select_invert)
-        self.select_invert.pack(side=tk.LEFT, padx=2)
+        self.select_invert_button = tk.Button(self.toolbar, text="Invert selections", command=self.select_invert)
+        self.select_invert_button.pack(side=tk.LEFT, padx=2)
 
         self.item_count = tk.Label(self.toolbar, text="")
         self.item_count.pack(side=tk.RIGHT, padx=2)
@@ -509,6 +509,7 @@ class MediaSelectorApp:
         shell_script_string = self.ShellScriptWindow.get_script()
         data = subprocess.run(["bash","-c", shell_script_string])
         self.ShellScriptWindow.clear()
+        self.select_none()
 
     def update_counter(self, count):
         self.item_count.config(text="Item count: "+str(count))
