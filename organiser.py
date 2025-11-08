@@ -20,6 +20,9 @@ import re
 #TODO: Sort items by create date in the grid
 #TODO: Add second thread for loading images to bring up the UI faster
 
+TK_SHIFT_MASK    = 0x0001
+TK_CONTROL_MASK  = 0x0004
+
 class CmdLineError(Exception):
     pass
 class DoubleSlash(Exception):
@@ -58,7 +61,7 @@ class Item(tk.Frame):
     last_selected = None
     mouse_action = 1
 
-    def __init__(self, root, item_data, selected_items, input_data, input_data_source_index, thumb_size, bg_color, select_color, enter_callback, leave_callback, full_screen_callback, shift_select_callback, **kwargs):
+    def __init__(self, root, item_data, selected_items, input_data, input_data_source_index, thumb_size, bg_color, select_color, enter_callback, leave_callback, full_screen_callback, shift_select_callback, select_all_callback, **kwargs):
         super().__init__(root, **kwargs)
 
         self.selected_items = selected_items
@@ -68,6 +71,7 @@ class Item(tk.Frame):
         self.filename_path = os.path.join(input_data["sources"][input_data_source_index], item_data["filename"])
         self.full_screen_callback = full_screen_callback
         self.shift_select_callback = shift_select_callback
+        self.select_all_callback = select_all_callback
 
         if not self.filename_path or not os.path.exists(self.filename_path):
             print("ERROR: file in json from source media interface executable couldn't be found")
@@ -101,6 +105,8 @@ class Item(tk.Frame):
     def key_callback(self, event):
         if event.char == '\r' :
             self.full_screen_callback(self.filename_path)
+        if event.state & TK_CONTROL_MASK and event.keysym == 'a':
+            self.select_all_callback()
 
     def deselect(self):
         for i in (self.image, self.caption, self):
@@ -122,7 +128,7 @@ class Item(tk.Frame):
             self.select()
             Item.mouse_action = 1
         self.dragged_over.add(self)
-        if event.state & 0x0001 and Item.last_selected != None:
+        if event.state & TK_SHIFT_MASK and Item.last_selected != None:
             self.shift_select_callback(Item.last_selected,self,Item.mouse_action)
         Item.last_selected=self
 
@@ -278,7 +284,7 @@ class FullScreenItem(tk.Frame):
 
 
 class ItemGrid(tk.Frame):
-    def __init__(self, root, thumb_size, item_border_size, item_padding, selected_items, input_data, full_screen_callback):
+    def __init__(self, root, thumb_size, item_border_size, item_padding, selected_items, input_data, full_screen_callback, select_all_callback):
         super().__init__(root)
 
         self.thumb_size = thumb_size
@@ -299,13 +305,15 @@ class ItemGrid(tk.Frame):
         self.scrollbar.pack(side="right", fill="y")
 
         for item in self.item_list["file_list"]:
-            self.items.append(Item(self.item_grid, item, selected_items, input_data, 0, self.thumb_size, root.cget('bg'), "#5293fa", self.bind_grid_scroll, self.unbind_grid_scroll, full_screen_callback, self.shift_select, bd=self.item_border_size))
+            self.items.append(Item(self.item_grid, item, selected_items, input_data, 0, self.thumb_size, root.cget('bg'), "#5293fa", self.bind_grid_scroll, self.unbind_grid_scroll, full_screen_callback, self.shift_select, select_all_callback, bd=self.item_border_size))
 
         self.item_grid.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", lambda x: self.canvas.after_idle(self.update_item_layout))
         for i in (self.canvas, self.item_grid):
             i.bind("<Enter>", self.bind_grid_scroll)
             i.bind("<Leave>", self.unbind_grid_scroll)
+            i.bind("<Control-a>", select_all_callback)
+            i.bind("<Control-A>", select_all_callback)
 
     def bind_grid_scroll(self, event):
         self.canvas.bind_all("<Button-4>", self.scroll_steps)
@@ -501,7 +509,7 @@ class MediaSelectorApp:
 
         self.grid_and_toolbar = tk.Frame(self.list_grid_pane)
 
-        self.ItemGrid = ItemGrid(self.grid_and_toolbar, thumb_size, item_border_size, item_padding, self.selected_items, self.input_data, self.enter_full_screen)
+        self.ItemGrid = ItemGrid(self.grid_and_toolbar, thumb_size, item_border_size, item_padding, self.selected_items, self.input_data, self.enter_full_screen, self.select_all_callback)
 
         self.toolbar = tk.Frame(self.grid_and_toolbar, bd=3)
         self.toolbar.config(relief="groove")
@@ -627,6 +635,9 @@ class MediaSelectorApp:
 
     def update_counter(self, count):
         self.item_count.config(text="Item count: "+str(count))
+
+    def select_all_callback(self, event=None):
+        self.select_all()
 
     def select_all(self):
         for i in self.ItemGrid.items:
