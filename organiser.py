@@ -17,7 +17,6 @@ from tkinter import ttk
 #TODO: Add tools to search the destination dir
 #TODO: Add tools to make projects
 #TODO: Sort items by create date in the grid
-#TODO: add shift select/deselect with click only on first and last
 #TODO: Add second thread for loading images to bring up the UI faster
 
 class CmdLineError(Exception):
@@ -54,7 +53,11 @@ class CountCallbackSet:
 
 
 class Item(tk.Frame):
-    def __init__(self, root, item_data, selected_items, input_data, input_data_source_index, thumb_size, bg_color, select_color, enter_callback, leave_callback, full_screen_callback, **kwargs):
+
+    last_selected = None
+    mouse_action = 1
+
+    def __init__(self, root, item_data, selected_items, input_data, input_data_source_index, thumb_size, bg_color, select_color, enter_callback, leave_callback, full_screen_callback, shift_select_callback, **kwargs):
         super().__init__(root, **kwargs)
 
         self.selected_items = selected_items
@@ -63,6 +66,7 @@ class Item(tk.Frame):
         self.select_color = select_color
         self.filename_path = os.path.join(input_data["sources"][input_data_source_index], item_data["filename"])
         self.full_screen_callback = full_screen_callback
+        self.shift_select_callback = shift_select_callback
 
         if not self.filename_path or not os.path.exists(self.filename_path):
             print("ERROR: file in json from source media interface executable couldn't be found")
@@ -100,7 +104,8 @@ class Item(tk.Frame):
     def deselect(self):
         for i in (self.image, self.caption, self):
             i.config(bg=self.bg_color)
-        self.selected_items.remove(self.filename_path)
+        if self.filename_path in self.selected_items:
+            self.selected_items.remove(self.filename_path)
 
     def select(self):
         for i in (self.image, self.caption, self):
@@ -109,14 +114,16 @@ class Item(tk.Frame):
 
     def on_click(self, event):
         self.dragged_over.clear()
-        if self not in self.dragged_over:
-            if self.filename_path in self.selected_items:
-                self.deselect()
-                self.mouse_action = 0
-            else:
-                self.select()
-                self.mouse_action = 1
-            self.dragged_over.add(self)
+        if self.filename_path in self.selected_items:
+            self.deselect()
+            Item.mouse_action = 0
+        else:
+            self.select()
+            Item.mouse_action = 1
+        self.dragged_over.add(self)
+        if event.state & 0x0001 and Item.last_selected != None:
+            self.shift_select_callback(Item.last_selected,self,Item.mouse_action)
+        Item.last_selected=self
 
     def get_filename_path(self):
         return self.filename_path
@@ -128,9 +135,9 @@ class Item(tk.Frame):
         while widget and not isinstance(widget, Item):
             widget = widget.master
         if isinstance(widget, Item) and widget not in self.dragged_over:
-            if self.mouse_action == 1:
+            if Item.mouse_action == 1:
                 widget.select()
-            elif widget.get_filename_path() in self.selected_items:
+            else:
                 widget.deselect()
             self.dragged_over.add(widget)
 
@@ -291,7 +298,7 @@ class ItemGrid(tk.Frame):
         self.scrollbar.pack(side="right", fill="y")
 
         for item in self.item_list["file_list"]:
-            self.items.append(Item(self.item_grid, item, selected_items, input_data, 0, self.thumb_size, root.cget('bg'), "#5293fa", self.bind_grid_scroll, self.unbind_grid_scroll, full_screen_callback, bd=self.item_border_size))
+            self.items.append(Item(self.item_grid, item, selected_items, input_data, 0, self.thumb_size, root.cget('bg'), "#5293fa", self.bind_grid_scroll, self.unbind_grid_scroll, full_screen_callback, self.shift_select, bd=self.item_border_size))
 
         self.item_grid.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", lambda x: self.canvas.after_idle(self.update_item_layout))
@@ -328,6 +335,20 @@ class ItemGrid(tk.Frame):
                 col = idx % items_per_row
                 item.grid(row=row, column=col, padx=self.item_padding, pady=self.item_padding, sticky="nsew")
             self.last_items_per_row = items_per_row
+
+    def shift_select(self, start, end, action):
+        select = 0
+        for i in self.items:
+            if i == start or i == end:
+                if select == 0:
+                    select = 1
+                else:
+                    break
+            if select == 1:
+                if action:
+                    i.select()
+                else:
+                    i.deselect()
 
 
 # Note: clear needs to be called to initialise the contents of the window
