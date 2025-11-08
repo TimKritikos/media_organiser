@@ -592,6 +592,10 @@ class MediaSelectorApp:
         self.shell_script_error = None
 
     def execute_shell(self):
+        if len(self.selected_items) != 0:
+            messagebox.showinfo("Error", "Error: Cannot have selected items when executing. Did you forget to add them to the script?")
+            return
+
         if self.shell_script_error != None:
             self.ShellScriptWindow.unmark_error_line(self.shell_script_error)
 
@@ -617,7 +621,6 @@ class MediaSelectorApp:
         else:
             self.shell_script_error = None
             self.ShellScriptWindow.clear(self.bash_side_channel_write_fd)
-            self.select_none()
 
     def update_counter(self, count):
         self.item_count.config(text="Item count: "+str(count))
@@ -661,6 +664,8 @@ class MediaSelectorApp:
         for file_id in self.selected_items:
             for file_to_link in load_interface_data(self.input_data, 0, 'get-related', arg=file_id)["file_list"]:
                 self.ShellScriptWindow.add_file(file_to_link["filename"], destination_project_dir, self.input_data)
+
+        self.select_none()
 
 
 def load_interface_data(input_data , source_number, query, arg=None):
