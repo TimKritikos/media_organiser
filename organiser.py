@@ -10,6 +10,7 @@ from PIL import Image, ImageTk
 import subprocess
 import argparse
 from tkinter import ttk
+import re
 
 #TODO: Check if a file is already linked in the destination directory
 #TODO: add a file view mode
@@ -356,12 +357,27 @@ class ShellScriptWindow(tk.Frame):
     def __init__(self, root):
         super().__init__(root)
         self.text_widget = tk.Text(self, bg='black', fg='white')
-        self.text_widget.tag_configure("error", background="red")
         self.text_widget.grid(row=0, column=0, sticky='nswe')
         self.script_written_lines = set()
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.text_widget.yview)
         self.text_widget['yscrollcommand'] = self.scrollbar.set
         self.scrollbar.grid(row=0, column=1, sticky='ns')
+
+        self.text_widget.tag_configure("keywords_builtins", foreground="#D99936")
+        self.text_widget.tag_configure("posix_commands", foreground="#D99936")
+        self.text_widget.tag_configure("strings", foreground="#EB2626")
+        self.text_widget.tag_configure("comments", foreground="#26A2EB")
+        self.text_widget.tag_configure("parameters", foreground="#d33682")
+
+        self.syntax_highlighting_patterns = {
+                "keywords_builtins": r"\b(set|trap)\b",
+                "posix_commands": r"\b(ln|mkdir)\b",
+                "strings": r"(['\"]).*?\1",
+                "comments": r"#.*",
+                "parameters": r"-[a-zA-Z0-9_]+"
+                }
+
+        self.text_widget.tag_configure("error", background="red")
 
     def add_file(self, file, destination_project_dir, input_data):
         line = "ln -s '"+os.path.relpath(os.path.join(input_data["sources"][0], file), destination_project_dir)+"' '"+destination_project_dir+"'\n"
@@ -369,6 +385,7 @@ class ShellScriptWindow(tk.Frame):
             self.text_widget.config(state=tk.NORMAL)
             self.text_widget.insert(tk.END, line)
             self.text_widget.config(state=tk.DISABLED)
+            self.highlight_lines((4+len(self.script_written_lines), ))
             self.script_written_lines.add(line)
             self.text_widget.see("end")
 
@@ -380,21 +397,39 @@ class ShellScriptWindow(tk.Frame):
         self.text_widget.delete(1.0, tk.END)
         self.text_widget.insert(tk.END, "#!/bin/sh\nset -eu\n\n")
         self.text_widget.config(state=tk.DISABLED)
+        self.highlight_lines((1, 2))
         self.update_bash_side_channel_write_fd(bash_side_channel_write_fd)
         self.script_written_lines.clear()
 
     def mark_error_line(self,line):
+        for tag in self.syntax_highlighting_patterns:
+            self.text_widget.tag_remove(tag, f"{line}.0", f"{line}.end")
         self.text_widget.tag_add("error", f"{line}.0", f"{line}.end")
         self.text_widget.see(f"{line}.0")
 
     def unmark_error_line(self,line):
         self.text_widget.tag_remove("error", f"{line}.0", f"{line}.end")
+        self.highlight_lines((line, ))
 
     def update_bash_side_channel_write_fd(self, fd):
         self.text_widget.config(state=tk.NORMAL)
         self.text_widget.delete('3.0', '4.0')
         self.text_widget.insert('3.0', f"trap 'echo \"$LINENO\" >&{fd}' ERR # For debug\n")
         self.text_widget.config(state=tk.DISABLED)
+        self.highlight_lines((3, ))
+
+    def highlight_lines(self, lines):
+        for line in lines:
+            code = self.text_widget.get(f"{line}.0", f"{line}.end")
+
+            for tag in self.syntax_highlighting_patterns:
+                self.text_widget.tag_remove(tag, f"{line}.0", f"{line}.end")
+
+            for tag, pattern in self.syntax_highlighting_patterns.items():
+                for match in re.finditer(pattern, code):
+                    start = f"{line}.0+{match.start()}c"
+                    end = f"{line}.0+{match.end()}c"
+                    self.text_widget.tag_add(tag, start, end)
 
 
 class  ProjectList(tk.Frame):
