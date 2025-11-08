@@ -518,10 +518,13 @@ class MediaSelectorApp:
         self.execute_button.pack(side=tk.LEFT, padx=(4, 2), pady=2)
 
         self.add_to_script_button = ttk.Button(self.toolbar, text="Add to script", command=self.add_to_script, style="Normal.TButton")
-        self.add_to_script_button.pack(side=tk.LEFT, padx=(2, 2), pady=2)
+        self.add_to_script_button.pack(side=tk.LEFT, padx=2, pady=2)
 
         self.clear_script_button = ttk.Button(self.toolbar, text="Clear script", command=self.clear_shell_script, style="Clear.TButton")
-        self.clear_script_button.pack(side=tk.LEFT, padx=2)
+        self.clear_script_button.pack(side=tk.LEFT, padx=2, pady=2)
+
+        self.clear_script_button = ttk.Button(self.toolbar, text="Export script", command=self.export_shell_script)
+        self.clear_script_button.pack(side=tk.LEFT, padx=(2,4), pady=2)
 
         ttk.Separator(self.toolbar, orient='vertical').pack(side=tk.LEFT, padx=(5, 5), fill=tk.Y)
 
@@ -640,6 +643,13 @@ class MediaSelectorApp:
                 i.deselect()
             else:
                 i.select()
+
+    def export_shell_script(self):
+        save_path = filedialog.asksaveasfilename(defaultextension=".sh", filetypes=[("Shell Script", "*.sh")])
+        if not save_path:
+            return
+        with open(save_path, "w") as f:
+            f.write(self.ShellScriptWindow.get_script())
 
     def add_to_script(self):
         selected_dir = self.ProjectList.get_selected_dir()
