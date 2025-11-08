@@ -330,16 +330,17 @@ class ItemGrid(tk.Frame):
             self.last_items_per_row = items_per_row
 
 
+# Note: clear needs to be called to initialise the contents of the window
 class ShellScriptWindow(tk.Frame):
     def __init__(self, root):
         super().__init__(root)
         self.text_widget = tk.Text(self, bg='black', fg='white')
+        self.text_widget.tag_configure("error", background="red")
         self.text_widget.grid(row=0, column=0, sticky='nswe')
         self.script_written_lines = set()
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.text_widget.yview)
         self.text_widget['yscrollcommand'] = self.scrollbar.set
         self.scrollbar.grid(row=0, column=1, sticky='ns')
-        self.clear()
 
     def add_file(self, file, destination_project_dir, input_data):
         line = "ln -s '"+os.path.relpath(os.path.join(input_data["sources"][0], file), destination_project_dir)+"' '"+destination_project_dir+"'\n"
@@ -353,12 +354,27 @@ class ShellScriptWindow(tk.Frame):
     def get_script(self):
         return self.text_widget.get("1.0", tk.END)
 
-    def clear(self):
+    def clear(self, bash_side_channel_write_fd):
         self.text_widget.config(state=tk.NORMAL)
         self.text_widget.delete(1.0, tk.END)
-        self.text_widget.insert(tk.END, "#!/bin/sh\nset -eu\n")
+        self.text_widget.insert(tk.END, "#!/bin/sh\nset -eu\n\n")
         self.text_widget.config(state=tk.DISABLED)
+        self.update_bash_side_channel_write_fd(bash_side_channel_write_fd)
         self.script_written_lines.clear()
+
+    def mark_error_line(self,line):
+        self.text_widget.tag_add("error", f"{line}.0", f"{line}.end")
+        self.text_widget.see(f"{line}.0")
+
+    def unmark_error_line(self,line):
+        self.text_widget.tag_remove("error", f"{line}.0", f"{line}.end")
+
+    def update_bash_side_channel_write_fd(self, fd):
+        self.text_widget.config(state=tk.NORMAL)
+        self.text_widget.delete('3.0', '4.0')
+        self.text_widget.insert('3.0', f"trap 'echo \"$LINENO\" >&{fd}' ERR # For debug\n")
+        self.text_widget.config(state=tk.DISABLED)
+
 
 class  ProjectList(tk.Frame):
     def __init__(self, root, destinations):
@@ -477,10 +493,13 @@ class MediaSelectorApp:
         self.list_grid_pane.add(self.grid_and_toolbar, weight=1)
         self.list_grid_pane.add(self.ProjectList, weight=1)
 
+        self.bash_side_channel_read_fd = None
+        self.bash_side_channel_write_fd = None
         self.ShellScriptWindow = ShellScriptWindow(self.upper_and_shell_pane)
         self.ShellScriptWindow.grid(row=0, column=0, sticky='nswe')
         self.ShellScriptWindow.grid_rowconfigure(0, weight=1)
         self.ShellScriptWindow.grid_columnconfigure(0, weight=1)
+        self.clear_shell_script()
 
         self.upper_and_shell_pane.add(self.list_grid_pane, weight=1)
         self.upper_and_shell_pane.add(self.ShellScriptWindow, weight=1)
@@ -492,6 +511,8 @@ class MediaSelectorApp:
         self.selected_items.register_callback(self.update_counter)
         self.selected_items.call_callbacks() # Write initial text on the counter label
 
+        self.shell_script_error_line = None
+
     def enter_full_screen(self, path):
         self.ItemGrid.grid_forget()
         self.FullScreenItem = FullScreenItem(self.grid_and_toolbar, self.input_data, path, self.exit_full_screen)
@@ -502,14 +523,45 @@ class MediaSelectorApp:
         self.FullScreenItem.destroy()
         self.ItemGrid.grid(row=0, column=0, sticky='nswe')
 
+    def recycle_bash_side_channel_pipe(self):
+        if self.bash_side_channel_read_fd != None:
+            os.close(self.bash_side_channel_read_fd)
+        if self.bash_side_channel_write_fd != None:
+            os.close(self.bash_side_channel_write_fd)
+        self.bash_side_channel_read_fd, self.bash_side_channel_write_fd = os.pipe()
+
     def clear_shell_script(self):
-        self.ShellScriptWindow.clear()
+        self.recycle_bash_side_channel_pipe()
+        self.ShellScriptWindow.clear(self.bash_side_channel_write_fd)
+        self.shell_script_error = None
 
     def execute_shell(self):
+        if self.shell_script_error != None:
+            self.ShellScriptWindow.unmark_error_line(self.shell_script_error)
+
         shell_script_string = self.ShellScriptWindow.get_script()
-        data = subprocess.run(["bash","-c", shell_script_string])
-        self.ShellScriptWindow.clear()
-        self.select_none()
+
+        bash_process = subprocess.Popen(["bash", "-c", shell_script_string],pass_fds=(self.bash_side_channel_write_fd, ))
+
+        os.close(self.bash_side_channel_write_fd)
+        self.bash_side_channel_write_fd = None
+
+        with os.fdopen(self.bash_side_channel_read_fd, 'r') as f:
+            error_line = f.read().strip()
+        self.bash_side_channel_read_fd = None
+
+        bash_process.wait()
+
+        self.recycle_bash_side_channel_pipe()
+        if bash_process.returncode != 0:
+            self.shell_script_error = error_line
+            self.ShellScriptWindow.mark_error_line(error_line)
+            messagebox.showinfo("Error", "ERROR: Shell exit with an error code\nThe line that caused the error has been highlighted red")
+            self.ShellScriptWindow.update_bash_side_channel_write_fd(self.bash_side_channel_write_fd)
+        else:
+            self.shell_script_error = None
+            self.ShellScriptWindow.clear(self.bash_side_channel_write_fd)
+            self.select_none()
 
     def update_counter(self, count):
         self.item_count.config(text="Item count: "+str(count))
