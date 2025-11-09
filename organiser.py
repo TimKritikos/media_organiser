@@ -371,11 +371,12 @@ class ShellScriptWindow(tk.Frame):
         self.text_widget['yscrollcommand'] = self.scrollbar.set
         self.scrollbar.grid(row=0, column=1, sticky='ns')
 
-        self.text_widget.tag_configure("keywords_builtins", foreground="#D99936")
-        self.text_widget.tag_configure("posix_commands", foreground="#D99936")
+        self.text_widget.tag_configure("parameters", foreground="#FC8DF5")
+        self.text_widget.tag_configure("keywords_builtins", foreground="#B5732D")
+        self.text_widget.tag_configure("posix_commands", foreground="#B5732D")
         self.text_widget.tag_configure("strings", foreground="#EB2626")
         self.text_widget.tag_configure("comments", foreground="#26A2EB")
-        self.text_widget.tag_configure("parameters", foreground="#d33682")
+        self.text_widget.tag_configure("quote_chars", foreground="#B5732D")
 
         self.syntax_highlighting_patterns = {
                 "keywords_builtins": r"\b(set|trap)\b",
@@ -393,7 +394,7 @@ class ShellScriptWindow(tk.Frame):
             self.text_widget.config(state=tk.NORMAL)
             self.text_widget.insert(tk.END, line)
             self.text_widget.config(state=tk.DISABLED)
-            self.highlight_lines((4+len(self.script_written_lines), ))
+            self.syntax_highlight_lines((4+len(self.script_written_lines), ))
             self.script_written_lines.add(line)
             self.text_widget.see("end")
 
@@ -405,7 +406,7 @@ class ShellScriptWindow(tk.Frame):
         self.text_widget.delete(1.0, tk.END)
         self.text_widget.insert(tk.END, "#!/bin/sh\nset -eu\n\n")
         self.text_widget.config(state=tk.DISABLED)
-        self.highlight_lines((1, 2))
+        self.syntax_highlight_lines((1, 2))
         self.update_bash_side_channel_write_fd(bash_side_channel_write_fd)
         self.script_written_lines.clear()
 
@@ -417,16 +418,16 @@ class ShellScriptWindow(tk.Frame):
 
     def unmark_error_line(self,line):
         self.text_widget.tag_remove("error", f"{line}.0", f"{line}.end")
-        self.highlight_lines((line, ))
+        self.syntax_highlight_lines((line, ))
 
     def update_bash_side_channel_write_fd(self, fd):
         self.text_widget.config(state=tk.NORMAL)
         self.text_widget.delete('3.0', '4.0')
         self.text_widget.insert('3.0', f"trap 'echo \"$LINENO\" >&{fd}' ERR # For debug\n")
         self.text_widget.config(state=tk.DISABLED)
-        self.highlight_lines((3, ))
+        self.syntax_highlight_lines((3, ))
 
-    def highlight_lines(self, lines):
+    def syntax_highlight_lines(self, lines):
         for line in lines:
             code = self.text_widget.get(f"{line}.0", f"{line}.end")
 
@@ -436,8 +437,15 @@ class ShellScriptWindow(tk.Frame):
             for tag, pattern in self.syntax_highlighting_patterns.items():
                 for match in re.finditer(pattern, code):
                     start = f"{line}.0+{match.start()}c"
-                    end = f"{line}.0+{match.end()}c"
+                    end =   f"{line}.0+{match.end()}c"
                     self.text_widget.tag_add(tag, start, end)
+                    if tag == "strings":
+                        start =  f"{line}.0+{match.start()}c"
+                        start_ = f"{line}.0+{match.start()+1}c"
+                        end =    f"{line}.0+{match.end()-1}c"
+                        end_ =   f"{line}.0+{match.end()}c"
+                        self.text_widget.tag_add("quote_chars", start, start_)
+                        self.text_widget.tag_add("quote_chars", end, end_)
 
 
 class  ProjectList(tk.Frame):
