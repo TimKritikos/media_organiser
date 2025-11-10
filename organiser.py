@@ -15,7 +15,6 @@ import re
 #TODO: Check if a file is already linked in the destination directory
 #TODO: add a file view mode
 #TODO: add multiple source and destinations support
-#TODO: Add tools to search the destination dir
 #TODO: Add tools to make projects
 #TODO: Sort items by create date in the grid
 #TODO: Add second thread for loading images to bring up the UI faster
@@ -452,13 +451,42 @@ class  ProjectList(tk.Frame):
     def __init__(self, root, destinations):
         super().__init__(root, bd=2, relief="sunken")
 
+        self.toolbox = tk.Frame(self)
+        self.case_insensitive_button = ttk.Button(self.toolbox, text="Case insensitive", command=self.case_insensitive_insert)
+        self.case_insensitive_button.pack(side=tk.LEFT, padx=(4, 2), pady=2)
+        self.toolbox.pack(fill=tk.X)
+
+        self.searchbox = tk.Entry(self)
+        self.searchbox.bind('<KeyRelease>', self.searchbox_write_callback)
+        self.searchbox_description = "Enter a search regex"
+        self.searchbox.bind("<FocusIn>", self.searchbox_focused)
+        self.searchbox.bind("<FocusOut>", self.searchbox_unfocused)
+        self.searchbox.bind('<Control-KeyRelease-a>', self.select_all)
+        self.searchbox.bind('<Control-KeyRelease-A>', self.select_all)
+        self.searchbox.pack(fill=tk.X)
+        self.searchbox_unfocused()
+
         self.dir_listbox = tk.Listbox(self, width=60)
-        self.dir_listbox.pack(fill="both", expand=True)
         self.dir_listbox.delete(0, tk.END)
-        dirs = [new_item for new_item in os.listdir(destinations[0]) if os.path.isdir(os.path.join(destinations[0], new_item))]
-        dirs.sort()
-        for d in dirs:
+        self.dir_listbox.pack(fill="both", expand=True)
+
+
+        self.dirs = [new_item for new_item in os.listdir(destinations[0]) if os.path.isdir(os.path.join(destinations[0], new_item))]
+        self.dirs.sort()
+        for d in self.dirs:
             self.dir_listbox.insert(tk.END, d)
+
+    def case_insensitive_insert(self, event=None):
+        if self.searchbox_status == 'unfocused':
+            self.searchbox_focused()
+        self.searchbox.insert("end", "(?i)")
+        self.searchbox.focus_set()
+        self.searchbox.icursor('end')
+        self.searchbox_write_callback()
+
+    def select_all(self, event=None):
+        self.searchbox.select_range(0, 'end')
+        self.searchbox.icursor('end')
 
     def get_selected_dir(self):
         selection = self.dir_listbox.curselection()
@@ -466,6 +494,29 @@ class  ProjectList(tk.Frame):
             return None
         else:
             return self.dir_listbox.get(selection[0])
+
+    def searchbox_write_callback(self, event=None):
+        self.dir_listbox.delete(0, 'end')
+        try:
+            for d in self.dirs:
+                if any(True for _ in re.finditer(self.searchbox.get(), d)):
+                    self.dir_listbox.insert(tk.END, d)
+        except re.PatternError:
+            self.searchbox.config(bg='red')
+        else:
+            self.searchbox.config(bg='white')
+
+    def searchbox_focused(self, event=None):
+        if self.searchbox.get() == self.searchbox_description:
+            self.searchbox.delete(0, tk.END)
+            self.searchbox.config(fg='black')
+            self.searchbox_status = 'focused'
+
+    def searchbox_unfocused(self, event=None):
+        if self.searchbox.get() == '':
+            self.searchbox.insert(0, self.searchbox_description)
+            self.searchbox.config(fg='grey')
+            self.searchbox_status = 'unfocused'
 
 
 def normalise_and_check(paths, check, string_to_print):
