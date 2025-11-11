@@ -391,13 +391,16 @@ class ShellScriptWindow(tk.Frame):
 
         self.text_widget.tag_configure("error", background="red")
 
+    def treat_strings_for_posix_shell(self, string):
+        return "'"+string.replace('\'','\'"\'"\'')+"'"
+
     def add_file(self, file, project_name):
         if self.query_project_queued_in_script == None:
             raise TypeError # This should never happen
 
         destination_project_dir = self.get_destination_dir(project_name,not self.query_project_queued_in_script(project_name))
 
-        line = "ln -s '" + os.path.relpath(os.path.join(self.input_data["sources"][0], file), destination_project_dir) + "' '" + destination_project_dir + "'\n"
+        line = "ln -s " + self.treat_strings_for_posix_shell(os.path.relpath(os.path.join(self.input_data["sources"][0], file), destination_project_dir)) + " " + self.treat_strings_for_posix_shell(destination_project_dir) + "\n"
         if line not in self.script_written_lines:
             self.text_widget.config(state=tk.NORMAL)
             self.text_widget.insert(tk.END, line)
@@ -470,7 +473,7 @@ class ShellScriptWindow(tk.Frame):
                         self.text_widget.tag_add("quote_chars", end, end_)
 
     def new_project_callback(self, name):
-        line = "mkdir -p '" + self.get_destination_dir(name,False)+"'\n"
+        line = "mkdir -p " + self.treat_strings_for_posix_shell(self.get_destination_dir(name,False))+"\n"
         self.text_widget.config(state=tk.NORMAL)
         self.text_widget.insert(tk.END, line)
         self.text_widget.config(state=tk.DISABLED)
