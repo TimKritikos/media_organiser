@@ -11,11 +11,13 @@ import subprocess
 import argparse
 from tkinter import ttk
 import re
+import nltk
+from nltk.corpus import words
+from nltk.corpus import wordnet
 
 #TODO: Check if a file is already linked in the destination directory
 #TODO: add a file view mode
 #TODO: add multiple source and destinations support
-#TODO: Add tools to make projects
 #TODO: Sort items by create date in the grid
 #TODO: Add second thread for loading images to bring up the UI faster
 
@@ -361,7 +363,7 @@ class ItemGrid(tk.Frame):
 
 # Note: clear needs to be called to initialise the contents of the window
 class ShellScriptWindow(tk.Frame):
-    def __init__(self, root):
+    def __init__(self, root, input_data):
         super().__init__(root)
         self.text_widget = tk.Text(self, bg='black', fg='white')
         self.text_widget.grid(row=0, column=0, sticky='nswe')
@@ -369,6 +371,8 @@ class ShellScriptWindow(tk.Frame):
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.text_widget.yview)
         self.text_widget['yscrollcommand'] = self.scrollbar.set
         self.scrollbar.grid(row=0, column=1, sticky='ns')
+        self.input_data = input_data
+        self.query_project_queued_in_script = None
 
         self.text_widget.tag_configure("parameters", foreground="#FC8DF5")
         self.text_widget.tag_configure("keywords_builtins", foreground="#B5732D")
@@ -387,8 +391,13 @@ class ShellScriptWindow(tk.Frame):
 
         self.text_widget.tag_configure("error", background="red")
 
-    def add_file(self, file, destination_project_dir, input_data):
-        line = "ln -s '"+os.path.relpath(os.path.join(input_data["sources"][0], file), destination_project_dir)+"' '"+destination_project_dir+"'\n"
+    def add_file(self, file, project_name):
+        if self.query_project_queued_in_script == None:
+            raise TypeError # This should never happen
+
+        destination_project_dir = self.get_destination_dir(project_name,not self.query_project_queued_in_script(project_name))
+
+        line = "ln -s '" + os.path.relpath(os.path.join(self.input_data["sources"][0], file), destination_project_dir) + "' '" + destination_project_dir + "'\n"
         if line not in self.script_written_lines:
             self.text_widget.config(state=tk.NORMAL)
             self.text_widget.insert(tk.END, line)
@@ -399,6 +408,20 @@ class ShellScriptWindow(tk.Frame):
 
     def get_script(self):
         return self.text_widget.get("1.0", tk.END)
+
+    def get_destination_dir(self, project_name, expected_to_exist):
+        destination_project_dir = os.path.join(self.input_data["destinations"][0], project_name, self.input_data["destinations_append"], '.')
+
+        if expected_to_exist and not os.path.isdir(destination_project_dir):
+            raise FileNotFoundError("Selected project directory with the set destination append path doesn't exist")
+            return
+
+        # This is a last line of defense. This shouldn't ever be true
+        if destination_project_dir.find('//') != -1 or destination_project_dir.find('/./') != -1 or destination_project_dir.find('/../') != -1:
+            raise ValueError("Created a path that's not fully efficient")
+
+        return destination_project_dir
+
 
     def clear(self, bash_side_channel_write_fd):
         self.text_widget.config(state=tk.NORMAL)
@@ -446,18 +469,128 @@ class ShellScriptWindow(tk.Frame):
                         self.text_widget.tag_add("quote_chars", start, start_)
                         self.text_widget.tag_add("quote_chars", end, end_)
 
+    def new_project_callback(self, name):
+        line = "mkdir -p '" + self.get_destination_dir(name,False)+"'\n"
+        self.text_widget.config(state=tk.NORMAL)
+        self.text_widget.insert(tk.END, line)
+        self.text_widget.config(state=tk.DISABLED)
+        self.syntax_highlight_lines((4+len(self.script_written_lines), ))
+        self.text_widget.see("end")
+        self.script_written_lines.add(line) # This is mainly to get syntax highlighting linue number working in add_file
+
+
+def spell_check(self):
+    nltk.download('wordnet')
+    nltk.download('words')
+    content=self.text.get("1.0",'end-1c')
+    wn_lemmas = set(wordnet.all_lemma_names())
+    for tag in self.text.tag_names():
+        self.text.tag_delete(tag)
+    self.text.tag_configure('spell_error', underline=True, underlinefg='red')
+    fails=0
+    for word in content.split(' '):
+        word_to_check=re.sub(r'[^\w]', '', word.lower()).lower()
+        if wordnet.synsets(word_to_check) == [] :
+            if word_to_check not in words.words():
+                if not any(True for _ in re.finditer('^[0-9]*$', word_to_check)):
+                    position = content.find(word)
+                    self.text.tag_add('spell_error', f'1.{position}', f'1.{position + len(word)}')
+                    fails=fails+1
+    return fails
+
+
+class NewProject(tk.Toplevel):
+    def __init__(self, root, ShellScriptWindowCallback, ProjectListCallback ):
+        super().__init__(root)
+        self.title("Create project")
+        self.geometry("400x70")
+        self.attributes('-type', 'dialog')
+
+        self.ProjectListCallback = ProjectListCallback
+        self.ShellScriptWindowCallback = ShellScriptWindowCallback
+
+        self.entry_frame = tk.Frame(self)
+        self.entry_label = tk.Label(self.entry_frame,text="Name:")
+        self.entry_label.grid(row=0, column=0, padx=(5,0),pady=10)
+        self.text=tk.Text(self.entry_frame)
+        self.text.grid(row=0, column=1, sticky='we', padx=(5,9))
+        self.text.config(height=1)
+        self.text.config(wrap='none')
+        self.text.bind("<Return>", self.return_handle)
+        self.text.bind('<Control-KeyRelease-a>', self.select_all)
+        self.text.bind('<Control-KeyRelease-A>', self.select_all)
+
+        self.danger_style = ttk.Style()
+        self.danger_style.configure("Bad.TButton", background="#FF5E5E")
+        self.danger_style.map("Bad.TButton", background=[('hover', '#FF0000')])
+        self.danger_style.configure("Good.TButton", background="#82FF82")
+        self.danger_style.map("Good.TButton", background=[('hover', '#00FF00')])
+
+        self.button_grid=tk.Frame(self)
+        self.spell_check_button = ttk.Button(self.button_grid, text="Spell check", command=self.spell_check_exec)
+        self.spell_check_button.grid(row=0, column=0, padx=3, pady=3, sticky='we')
+        self.space_to_underscore = ttk.Button(self.button_grid, text="Space to underscore", command=self.space_to_underscore_exec)
+        self.space_to_underscore.grid(row=0, column=1, padx=3, pady=3, sticky='we')
+        self.write_to_script = ttk.Button(self.button_grid, text="Write to script", command=self.write_to_script_exec)
+        self.write_to_script.grid(row=0, column=2, padx=3, pady=3, sticky='we')
+
+        self.entry_frame.grid(row=0, column=0, sticky='nwe')
+        self.button_grid.grid(row=1, column=0, sticky='we')
+        self.entry_frame.grid_rowconfigure(1, weight=1)
+        self.entry_frame.grid_columnconfigure(1, weight=1)
+
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        self.text.focus_set()
+
+    def return_handle(self, event):
+        if event.keysym == "Return":  # prevent newline
+            return "break"
+        if event.keysym == "Tab":  # move focus instead of inserting tab
+            event.widget.tk_focusNext().focus()
+            return "break"
+
+    def spell_check_exec(self):
+        if spell_check(self) == 0:
+            self.spell_check_button.configure(style="Good.TButton")
+        else:
+            self.spell_check_button.configure(style="Bad.TButton")
+
+    def space_to_underscore_exec(self):
+        text=self.text.get("1.0", "1.end")
+        self.text.delete('1.0', tk.END)
+        self.text.insert(tk.END, text.replace(' ', '_'))
+        self.space_to_underscore.configure(style="Good.TButton")
+
+    def write_to_script_exec(self):
+        text=self.text.get("1.0", "1.end")
+        self.ProjectListCallback(text)
+        self.ShellScriptWindowCallback(text)
+        self.destroy()
+
+    def select_all(self, event=None):
+        self.text.tag_add(tk.SEL, "1.0", tk.END)
+        #self.text.icursor('end')
+
 
 class  ProjectList(tk.Frame):
-    def __init__(self, root, destinations):
+    def __init__(self, root, destinations, ShellScriptNewProjectCallback):
         super().__init__(root, bd=2, relief="sunken")
+
+        self.dirs_in_script = []
+        self.destinations = destinations
+        self.ShellScriptNewProjectCallback = ShellScriptNewProjectCallback
 
         self.toolbox = tk.Frame(self)
         self.case_insensitive_button = ttk.Button(self.toolbox, text="Case insensitive", command=self.case_insensitive_insert)
         self.case_insensitive_button.pack(side=tk.LEFT, padx=(4, 2), pady=2)
+        self.case_insensitive_button = ttk.Button(self.toolbox, text="New project", command=self.new_project)
+        self.case_insensitive_button.pack(side=tk.LEFT, padx=(2, 4), pady=2)
         self.toolbox.pack(fill=tk.X)
 
         self.searchbox = tk.Entry(self)
-        self.searchbox.bind('<KeyRelease>', self.searchbox_write_callback)
+        self.searchbox.bind('<KeyRelease>', self.update_list)
         self.searchbox_description = "Enter a search regex"
         self.searchbox.bind("<FocusIn>", self.searchbox_focused)
         self.searchbox.bind("<FocusOut>", self.searchbox_unfocused)
@@ -470,11 +603,52 @@ class  ProjectList(tk.Frame):
         self.dir_listbox.delete(0, tk.END)
         self.dir_listbox.pack(fill="both", expand=True)
 
+        self.full_update_list()
 
-        self.dirs = [new_item for new_item in os.listdir(destinations[0]) if os.path.isdir(os.path.join(destinations[0], new_item))]
-        self.dirs.sort()
-        for d in self.dirs:
+    def query_project_queued_in_script(self, name):
+        try:
+            self.dirs_in_script.index(name)
+        except ValueError:
+            return False
+        else:
+            return True
+
+    def clear_projects_queued_in_script(self):
+        self.dirs_in_script = []
+
+    def full_update_list(self):
+        self.dirs = [new_item for new_item in os.listdir(self.destinations[0]) if os.path.isdir(os.path.join(self.destinations[0], new_item))]
+        self.update_list()
+
+    def update_list(self, event=None):
+        self.listbox_items = []
+
+        for d in self.dirs_in_script:
+            self.listbox_items.append(d)
+        try:
+            for d in self.dirs:
+                if self.searchbox_status == 'unfocused' or any(True for _ in re.finditer(self.searchbox.get(), d)):
+                    self.listbox_items.append(d)
+        except re.PatternError:
+            self.searchbox.config(bg='red')
+        else:
+            self.searchbox.config(bg='white')
+
+        self.listbox_items.sort()
+
+        self.dir_listbox.delete(0,'end')
+        for d in self.listbox_items:
             self.dir_listbox.insert(tk.END, d)
+            if d in self.dirs_in_script:
+                self.dir_listbox.itemconfig(tk.END, {'bg': 'yellow'})
+
+    def new_project(self, event=None):
+        self.NewProject = NewProject(self, self.ShellScriptNewProjectCallback, self.new_project_callback)
+
+    def new_project_callback(self, name):
+        self.dirs_in_script.append(name)
+        self.update_list()
+        self.dir_listbox.see(self.listbox_items.index(name))
 
     def case_insensitive_insert(self, event=None):
         if self.searchbox_status == 'unfocused':
@@ -494,17 +668,6 @@ class  ProjectList(tk.Frame):
             return None
         else:
             return self.dir_listbox.get(selection[0])
-
-    def searchbox_write_callback(self, event=None):
-        self.dir_listbox.delete(0, 'end')
-        try:
-            for d in self.dirs:
-                if any(True for _ in re.finditer(self.searchbox.get(), d)):
-                    self.dir_listbox.insert(tk.END, d)
-        except re.PatternError:
-            self.searchbox.config(bg='red')
-        else:
-            self.searchbox.config(bg='white')
 
     def searchbox_focused(self, event=None):
         if self.searchbox.get() == self.searchbox_description:
@@ -614,18 +777,20 @@ class MediaSelectorApp:
         self.grid_and_toolbar.grid_rowconfigure(0, weight=1)
         self.grid_and_toolbar.grid_columnconfigure(0, weight=1)
 
-        self.ProjectList = ProjectList(self.list_grid_pane, self.input_data["destinations"])
-
-        self.list_grid_pane.add(self.grid_and_toolbar, weight=1)
-        self.list_grid_pane.add(self.ProjectList, weight=1)
-
         self.bash_side_channel_read_fd = None
         self.bash_side_channel_write_fd = None
-        self.ShellScriptWindow = ShellScriptWindow(self.upper_and_shell_pane)
+        self.ShellScriptWindow = ShellScriptWindow(self.upper_and_shell_pane, self.input_data)
         self.ShellScriptWindow.grid(row=0, column=0, sticky='nswe')
         self.ShellScriptWindow.grid_rowconfigure(0, weight=1)
         self.ShellScriptWindow.grid_columnconfigure(0, weight=1)
+
+        self.ProjectList = ProjectList(self.list_grid_pane, self.input_data["destinations"], self.ShellScriptWindow.new_project_callback)
+
+        self.ShellScriptWindow.query_project_queued_in_script = self.ProjectList.query_project_queued_in_script
         self.clear_shell_script()
+
+        self.list_grid_pane.add(self.grid_and_toolbar, weight=1)
+        self.list_grid_pane.add(self.ProjectList, weight=1)
 
         self.upper_and_shell_pane.add(self.list_grid_pane, weight=1)
         self.upper_and_shell_pane.add(self.ShellScriptWindow, weight=1)
@@ -660,6 +825,8 @@ class MediaSelectorApp:
         self.recycle_bash_side_channel_pipe()
         self.ShellScriptWindow.clear(self.bash_side_channel_write_fd)
         self.shell_script_error = None
+        self.ProjectList.clear_projects_queued_in_script()
+        self.ProjectList.full_update_list()
 
     def execute_shell(self):
         if len(self.selected_items) != 0:
@@ -691,6 +858,8 @@ class MediaSelectorApp:
         else:
             self.shell_script_error = None
             self.ShellScriptWindow.clear(self.bash_side_channel_write_fd)
+            self.ProjectList.clear_projects_queued_in_script()
+            self.ProjectList.full_update_list()
 
     def update_counter(self, count):
         self.item_count.config(text="Item count: "+str(count))
@@ -731,19 +900,14 @@ class MediaSelectorApp:
             messagebox.showinfo("Selection", "No items selected.")
             return
 
-        destination_project_dir = os.path.join(self.input_data["destinations"][0], selected_dir, self.input_data["destinations_append"], '.')
-
-        if not os.path.isdir(destination_project_dir):
-            messagebox.showinfo("ERROR", "Selected project dir with the set destination append path doesn't exist")
-            return
-
-        #This is a last line of defense. This shouldn't ever be true
-        if destination_project_dir.find('//') != -1 or destination_project_dir.find('/./') != -1 or destination_project_dir.find('/../') != -1:
-            raise DoubleSlash("Created a path that's not fully efficient")
-
-        for file_id in self.selected_items:
-            for file_to_link in load_interface_data(self.input_data, 0, 'get-related', arg=file_id)["file_list"]:
-                self.ShellScriptWindow.add_file(file_to_link["filename"], destination_project_dir, self.input_data)
+        try:
+            for file_id in self.selected_items:
+                for file_to_link in load_interface_data(self.input_data, 0, 'get-related', arg=file_id)["file_list"]:
+                    self.ShellScriptWindow.add_file(file_to_link["filename"], selected_dir)
+        except FileNotFoundError as error_message:
+            messagebox.showinfo("ERROR", error_message)
+        except ValueError as error_message:
+            messagebox.showinfo("ERROR", error_message)
 
         self.select_none()
 
