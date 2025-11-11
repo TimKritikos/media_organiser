@@ -365,7 +365,7 @@ class ItemGrid(tk.Frame):
 class ShellScriptWindow(tk.Frame):
     def __init__(self, root, input_data):
         super().__init__(root)
-        self.text_widget = tk.Text(self, bg='black', fg='white')
+        self.text_widget = tk.Text(self, bg='black', fg='white', height=8)
         self.text_widget.grid(row=0, column=0, sticky='nswe')
         self.script_written_lines = set()
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.text_widget.yview)
@@ -796,7 +796,7 @@ class MediaSelectorApp:
         self.list_grid_pane.add(self.ProjectList, weight=1)
 
         self.upper_and_shell_pane.add(self.list_grid_pane, weight=1)
-        self.upper_and_shell_pane.add(self.ShellScriptWindow, weight=1)
+        self.upper_and_shell_pane.add(self.ShellScriptWindow, weight=0)
 
         self.upper_and_shell_pane.grid (row=0, column=0, sticky='nswe')
         root.grid_rowconfigure(0, weight=1)
