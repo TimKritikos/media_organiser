@@ -659,7 +659,7 @@ class  ProjectList(tk.Frame):
         self.searchbox.insert("end", "(?i)")
         self.searchbox.focus_set()
         self.searchbox.icursor('end')
-        self.searchbox_write_callback()
+        self.update_list()
 
     def select_all(self, event=None):
         self.searchbox.select_range(0, 'end')
