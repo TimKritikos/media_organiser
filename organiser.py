@@ -632,7 +632,7 @@ class  ProjectList(tk.Frame):
             for d in self.dirs:
                 if self.searchbox_status == 'unfocused' or any(True for _ in re.finditer(self.searchbox.get(), d)):
                     self.listbox_items.append(d)
-        except re.PatternError:
+        except re.error:
             self.searchbox.config(bg='red')
         else:
             self.searchbox.config(bg='white')
