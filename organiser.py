@@ -20,6 +20,7 @@ from nltk.corpus import wordnet
 #TODO: add multiple source and destinations support
 #TODO: Sort items by create date in the grid
 #TODO: Add second thread for loading images to bring up the UI faster
+#TODO: Add metadata specialised metadata for Optical Image stabilisation and other professional camera metadata that could possibly be useful in selection of images
 
 TK_SHIFT_MASK    = 0x0001
 TK_CONTROL_MASK  = 0x0004
@@ -692,7 +693,7 @@ def normalise_and_check(paths, check, string_to_print):
         if check(normalised):
             output.append(normalised)
         else:
-            raise ("Failed to normalise "+string_to_print+" '"+i+"'")
+            raise FileNotFoundError("Failed to normalise "+string_to_print+" '"+i+"'")
     return output
 
 
