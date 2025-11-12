@@ -249,6 +249,8 @@ class FullScreenItem(tk.Frame):
 
         self.attach_binds(self)
 
+        self.img = Image.open(self.best_file_path).convert("RGB")
+
     def attach_binds(self, widget):
         widget.bind("<Configure>", lambda x: self.after_idle(self.update_size))
         widget.bind("<Key>", self.key_callback)
@@ -270,17 +272,12 @@ class FullScreenItem(tk.Frame):
             if self.image:
                 self.image.destroy()
             if self.best_file["item_type"] in ["image-preview", "image"]:
-                try:
-                    self.img = Image.open(self.best_file_path).convert("RGB")
-                    self.img.thumbnail(image_size)
-                    self.photo_obj = ImageTk.PhotoImage(self.img)
-                except Exception:
-                    self.img = Image.new("RGB", image_size, (100, 100, 100))
-                    self.photo_obj = ImageTk.PhotoImage(self.img)
+                image_resized=self.img.copy()
+                image_resized.thumbnail(image_size)
             else:
-                self.img = Image.new("RGB", image_size, (60, 60, 60))
-                self.photo_obj = ImageTk.PhotoImage(self.img)
+                image_resized = Image.new("RGB", image_size, (60, 60, 60))
 
+            self.photo_obj = ImageTk.PhotoImage(image_resized)
             self.image = tk.Label(self.image_frame, image=self.photo_obj, borderwidth=0)
             self.image.grid(row=0, column=0, sticky='nw')
 
