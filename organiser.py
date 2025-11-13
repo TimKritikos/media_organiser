@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from datetime import timezone
 import sys
-from exif import Image as exifImage
+from exiftool import ExifToolHelper
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
@@ -174,69 +174,110 @@ class FullScreenItem(tk.Frame):
         self.image_frame = tk.Frame(self)
         self.metadata_frame = tk.Frame(self)
 
-        with open(self.best_file_path, 'rb') as image_file:
-            my_image = exifImage(self.best_file_path)
+        with ExifToolHelper() as et:
+            metadata=et.get_metadata(self.best_file_path)
+            self.metadata={
+                    "Filename": "",
+                    "Create date": "",
+                    "Create time": ""
+                    }
+            for d in metadata:
+                if "Composite:ShutterSpeed" in d:
+                    #Add the exposure values in this order if they exist
+                    self.metadata["Shutter speed"]=""
+                    self.metadata["Aperature"]=""
+                    self.metadata["ISO"]=""
+                    self.metadata["Focal length (35mm)"]=""
+                    break
 
-        self.metadata_labels = []
-        if not my_image.has_exif:
-            self.no_exif = tk.Label(self.metadata_frame, text="File doesn't have exif metadata")
-            self.no_exif.grid(row=0, column=0)
-            self.attach_binds(self.no_exif)
-        else:
-            #Process create date
-            try:
-                create_date_notz = datetime.strptime(my_image.datetime, '%Y:%m:%d %H:%M:%S')
-                create_date = create_date_notz.replace(tzinfo=timezone.utc)
-                create_date_str = create_date.strftime("%Y-%m-%d")
-                create_time_str = create_date.strftime("%H:%M:%S")
-            except AttributeError:
-                create_date_str = ""
-                create_time_str = ""
+            for d in metadata:
+                for key, value in d.items():
+                    match key:
+                        case "File:FileName":
+                            self.metadata["Filename"]=value
+                        case "EXIF:Make":
+                            self.metadata["Camera make"]=value
+                        case "EXIF:Model":
+                            self.metadata["Camera model"]=value
+                        case "EXIF:CreateDate":
+                            try:
+                                create_date_notz = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                                create_date = create_date_notz.replace(tzinfo=timezone.utc)
+                                self.metadata["Create date"] = create_date.strftime("%Y-%m-%d")
+                                self.metadata["Create time"] = create_date.strftime("%H:%M:%S")
+                            except AttributeError:
+                                True
+                        case "Composite:ShutterSpeed":
+                            if int(value) < 1:
+                                if (1/value) % 1 < 0.01:
+                                    self.metadata["Shutter speed"] = "1/"+str(int(1/value))+" s"
+                                else:
+                                    self.metadata["Shutter speed"] = "1/"+str(1/value)+" s"
+                            else:
+                                if value % 1 < 0.01:
+                                    self.metadata["Shutter speed"] = str(int(value))+" s"
+                                else:
+                                    self.metadata["Shutter speed"] = str(value)+" s"
+                        case "EXIF:ISO":
+                            self.metadata["ISO"]=str(value)
+                        case "EXIF:FNumber":
+                            self.metadata["Aperature"]="f"+str(value)
+                        case "EXIF:Software":
+                            self.metadata["Software version"]=value
+                        case "EXIF:SubSecTimeOriginal":
+                            self.metadata["Create time"] += "."+str(value)
+                        case "EXIF:ExposureCompensation":
+                            self.metadata["Exposure compensation"] = str(value)
+                        case "EXIF:FocalLengthIn35mmFormat":
+                            self.metadata["Focal length (35mm)"]=str(value)+"mm"
+                        case "EXIF:Contrast":
+                            self.metadata["Contrast"]=str(value)
+                        case "EXIF:Saturation":
+                            self.metadata["Saturation"]=str(value)
+                        case "EXIF:Sharpness":
+                            self.metadata["Sharpness"]=str(value)
+                        case "EXIF:SerialNumber":
+                            self.metadata["Serial Number"]=value
+                        case "APP6:HDRSetting":
+                            self.metadata["HDR Setting"]=value
+                        case "EXIF:DigitalZoomRatio":
+                            self.metadata["Digital Zoom ratio"]=str(value)
+                        case "EXIF:LensModel":
+                            self.metadata["Lens model"]=value
+                        case "MakerNotes:ImageStabilization":
+                            self.metadata["Image stabilization"]=str(value) #TODO figure what the values mean
+                        case "MakerNotes:ElectronicFrontCurtainShutter":
+                            self.metadata["Electronic Front Curtain"]=str(value)
+                        case "MakerNotes:FocusMode":
+                            self.metadata["Focus mode"]=str(value) #TODO figure what the values mean
+                        case "MakerNotes:FocusLocation":
+                            True #TODO maybe draw it?
+                        case "MakerNotes:BatteryTemperature":
+                            self.metadata["Battery temprature"]="{:.1f}".format(value)+"°C"#TODO make sure it's celsius
+                        case "MakerNotes:BatteryLevel":
+                            self.metadata["Battery level"]=str(value)+"%"
+                        case "MakerNotes:ShutterCount":
+                            self.metadata["Shutter count"]=str(value)
+                        case "Composite:FocusDistance2":
+                            self.metadata["Focus distance"]=str(value)+"m"
 
-            #Process shutter speed
-            try:
-                if my_image.exposure_time < 1:
-                    shutter_str = "1/"+str(1/my_image.exposure_time)+" s"
-                else:
-                    shutter_str = str(my_image.exposure_time)+" s"
-            except AttributeError:
-                shutter_str = ""
+        self.metadata_canvas = tk.Canvas(self.metadata_frame, highlightthickness=0, width=250,height=1000)
+        self.metadata_canvas.grid(row=0, column=0, sticky='nswe')
+        self.metadata_canvas.grid_rowconfigure(0, weight=1)
+        self.metadata_canvas.grid_columnconfigure(0, weight=1)
 
-            self.metadata_canvas = tk.Canvas(self.metadata_frame, highlightthickness=0, width=220)
-            self.metadata_canvas.grid(row=0, column=0, sticky='nswe')
-            self.metadata_canvas.grid_rowconfigure(0, weight=1)
-            self.metadata_canvas.grid_columnconfigure(0, weight=1)
+        metadata_key_x_end = 150
+        metadata_value_x_start = metadata_key_x_end+5
+        metadata_y_start = 20
+        metadata_y_step = 15
 
-            metadata_key_x_end = 120
-            metadata_value_x_start = 125
-            metadata_y_start = 20
-            metadata_y_step = 15
+        for i, (key, value) in enumerate(self.metadata.items()):
+            y = metadata_y_start + i * metadata_y_step
 
-            metadata = []
-            for key in ("f_number", "photographic_sensitivity", "focal_length_in_35mm_film", "make", "model", "lens_make", "lens_model", "flash"):
-                value = getattr(my_image, key, None)
-                metadata.append(value if value is not None else "")
+            key_id = self.metadata_canvas.create_text(metadata_key_x_end, y, text=key+":", anchor="e", fill="#333")
+            val_id = self.metadata_canvas.create_text(metadata_value_x_start, y, text=value, anchor="w", fill="#000")
 
-
-            for i, (key, value) in enumerate((
-                ("Create date:", create_date_str),
-                ("Create time:", create_time_str),
-                ( "Aperture:", "f"+str(metadata[0])),
-                ( "Shutter speed:", shutter_str),
-                ( "ISO:", str(metadata[1])),
-                ( "Focal Length (35mm):", str(metadata[2])+"mm"),
-                ( "Camera make:", metadata[3]),
-                ( "Camera name:", metadata[4]),
-                ( "Lens make:", metadata[5]),
-                ( "Lens model:", metadata[6]),
-                ( "Flash:", metadata[7])
-                )):
-                y = metadata_y_start + i * metadata_y_step
-
-                key_id = self.metadata_canvas.create_text(metadata_key_x_end, y, text=key, anchor="e", fill="#333")
-                val_id = self.metadata_canvas.create_text(metadata_value_x_start, y, text=value, anchor="w", fill="#000")
-
-            self.attach_binds(self.metadata_canvas)
+        self.attach_binds(self.metadata_canvas)
 
         self.image_frame.grid(row=0, column=0, sticky='nswe')
         self.attach_binds(self.image_frame)
