@@ -14,6 +14,7 @@ import re
 import nltk
 from nltk.corpus import words
 from nltk.corpus import wordnet
+import mpv
 
 #TODO: Check if a file is already linked in the destination directory
 #TODO: add a file view mode
@@ -171,7 +172,7 @@ class FullScreenItem(tk.Frame):
 
         self.best_file_path = os.path.join(input_data["sources"][0], self.best_file["filename"])
 
-        self.image_frame = tk.Frame(self)
+        self.content_frame = tk.Frame(self)
         self.metadata_frame = tk.Frame(self)
 
         with ExifToolHelper() as et:
@@ -305,8 +306,8 @@ class FullScreenItem(tk.Frame):
 
         self.attach_binds(self.metadata_canvas)
 
-        self.image_frame.grid(row=0, column=0, sticky='nswe')
-        self.attach_binds(self.image_frame)
+        self.content_frame.grid(row=0, column=0, sticky='nswe')
+        self.attach_binds(self.content_frame)
 
         self.metadata_frame.grid(row=0, column=1, sticky='nse')
         self.attach_binds(self.metadata_frame)
@@ -315,9 +316,52 @@ class FullScreenItem(tk.Frame):
         self.grid_columnconfigure(0, weight=1)
 
         self.attach_binds(self)
+        self.mpv = None
 
-        if self.best_file["item_type"] in [ "image", ]:
+        if self.best_file["item_type"] == "image":
             self.img = Image.open(self.best_file_path).convert("RGB")
+        elif self.best_file["item_type"] == "video":
+            self.video_frame = tk.Frame(self.content_frame)
+            self.video_frame.pack(fill=tk.BOTH, expand=True)
+            self.control_frame = tk.Frame(self.content_frame, bg="grey")
+            self.control_frame.pack(fill=tk.X)
+
+            self.video_play_button = ttk.Button(self.control_frame, text="Play", command=self.video_play_pause)
+            self.video_play_button.pack(side=tk.LEFT, padx=5)
+            self.scale = ttk.Scale(self.control_frame, from_=0, to=100, orient=tk.HORIZONTAL)
+            self.scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+            self.scale.bind("<Button-1>", self.video_scale_click)
+
+            self.attach_binds(self.video_frame)
+            self.attach_binds(self.control_frame)
+
+            window_id = self.video_frame.winfo_id()
+            self.mpv = mpv.MPV( wid=window_id, vo='x11', keep_open=True)
+
+            if self.best_file["file_type"] == "video":
+                self.mpv.pause = True
+                self.video = self.mpv.play(self.best_file_path)
+
+            self.mpv.observe_property('time-pos', self.video_time_callback)
+
+    def video_time_callback(self, name, value):
+        if value != None and self.mpv.duration != None:
+            self.updating_video_scale = True
+            self.scale.set((value*100)/self.mpv.duration)
+            self.updating_video_scale = False
+
+    def video_scale_click(self, event):
+        scale_length = self.scale.winfo_width()
+        self.scale.set((event.x/scale_length)*100)
+        self.mpv.time_pos = (event.x/scale_length)*self.mpv.duration
+
+    def video_play_pause(self):
+        if self.mpv.pause == False:
+            self.video_play_button.config(text="play")
+            self.mpv.pause = True
+        elif self.mpv.pause == True:
+            self.video_play_button.config(text="pause")
+            self.mpv.pause = False
 
     def attach_binds(self, widget):
         widget.bind("<Configure>", lambda x: self.after_idle(self.update_size))
@@ -328,26 +372,37 @@ class FullScreenItem(tk.Frame):
         event.widget.focus_set()
 
     def key_callback(self, event):
-        if event.char == '\r':
-            self.exit_callback()
+        match event.char:
+            case '\r':
+                self.exit_callback()
+            case ' ':
+                self.video_play_pause()
+            case '.':
+                self.mpv.command('frame-step')
+                self.video_play_button.config(text="play")
+            case ',':
+                self.mpv.command('frame-back-step')
+                self.video_play_button.config(text="play")
+
 
     def update_size(self):
-        frame_width = self.image_frame.winfo_width()
-        frame_height = self.image_frame.winfo_height()
-        image_size = (frame_width, frame_height)
-        if image_size != self.old_image_size:
-            self.old_image_size = image_size
-            if self.image:
-                self.image.destroy()
-            if self.best_file["item_type"] in [ "image"]:
-                image_resized=self.img.copy()
-                image_resized.thumbnail(image_size)
-            else:
-                image_resized = Image.new("RGB", image_size, (60, 60, 60))
+        if self.best_file["item_type"] == "image":
+            frame_width = self.content_frame.winfo_width()
+            frame_height = self.content_frame.winfo_height()
+            image_size = (frame_width, frame_height)
+            if image_size != self.old_image_size:
+                self.old_image_size = image_size
+                if self.image:
+                    self.image.destroy()
+                if self.best_file["item_type"] in [ "image"]:
+                    image_resized = self.img.copy()
+                    image_resized.thumbnail(image_size)
+                else:
+                    image_resized = Image.new("RGB", image_size, (60, 60, 60))
 
-            self.photo_obj = ImageTk.PhotoImage(image_resized)
-            self.image = tk.Label(self.image_frame, image=self.photo_obj, borderwidth=0)
-            self.image.grid(row=0, column=0, sticky='nw')
+                self.photo_obj = ImageTk.PhotoImage(image_resized)
+                self.image = tk.Label(self.content_frame, image=self.photo_obj, borderwidth=0)
+                self.image.grid(row=0, column=0, sticky='nw')
 
 
 class ItemGrid(tk.Frame):
