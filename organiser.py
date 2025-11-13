@@ -197,9 +197,9 @@ class FullScreenItem(tk.Frame):
                             self.metadata["Filename"]=value
                         case "EXIF:Make":
                             self.metadata["Camera make"]=value
-                        case "EXIF:Model":
+                        case "EXIF:Model"|"QuickTime:Model":
                             self.metadata["Camera model"]=value
-                        case "EXIF:CreateDate":
+                        case "EXIF:CreateDate"|"QuickTime:CreateDate":
                             try:
                                 create_date_notz = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
                                 create_date = create_date_notz.replace(tzinfo=timezone.utc)
@@ -222,11 +222,11 @@ class FullScreenItem(tk.Frame):
                             self.metadata["ISO"]=str(value)
                         case "EXIF:FNumber":
                             self.metadata["Aperature"]="f"+str(value)
-                        case "EXIF:Software":
+                        case "EXIF:Software"|"QuickTime:FirmwareVersion":
                             self.metadata["Software version"]=value
                         case "EXIF:SubSecTimeOriginal":
                             self.metadata["Create time"] += "."+str(value)
-                        case "EXIF:ExposureCompensation":
+                        case "EXIF:ExposureCompensation"|"QuickTime:ExposureCompensation":
                             self.metadata["Exposure compensation"] = str(value)
                         case "EXIF:FocalLengthIn35mmFormat":
                             self.metadata["Focal length (35mm)"]=str(value)+"mm"
@@ -234,13 +234,13 @@ class FullScreenItem(tk.Frame):
                             self.metadata["Contrast"]=str(value)
                         case "EXIF:Saturation":
                             self.metadata["Saturation"]=str(value)
-                        case "EXIF:Sharpness":
+                        case "EXIF:Sharpness"|"QuickTime:Sharpness":
                             self.metadata["Sharpness"]=str(value)
-                        case "EXIF:SerialNumber":
+                        case "EXIF:SerialNumber"|"QuickTime:CameraSerialNumber":
                             self.metadata["Serial Number"]=value
-                        case "APP6:HDRSetting":
+                        case "APP6:HDRSetting"|"QuickTime:HDRVideo":
                             self.metadata["HDR Setting"]=value
-                        case "EXIF:DigitalZoomRatio":
+                        case "EXIF:DigitalZoomRatio"|"QuickTime:DigitalZoomAmount":
                             self.metadata["Digital Zoom ratio"]=str(value)
                         case "EXIF:LensModel":
                             self.metadata["Lens model"]=value
@@ -260,6 +260,32 @@ class FullScreenItem(tk.Frame):
                             self.metadata["Shutter count"]=str(value)
                         case "Composite:FocusDistance2":
                             self.metadata["Focus distance"]=str(value)+"m"
+                        case "QuickTime:ElectronicStabilizationOn":
+                            self.metadata["S/W Image stabilization"]=str(value)
+                        case "QuickTime:BitrateSetting":
+                            self.metadata["Video bitrate"]=str(value)
+                        #case "QuickTime:BitDepth":
+                        #    self.metadata["Bit depth"]=int(value/3)
+                        case "QuickTime:VideoFrameRate":
+                            self.metadata["Framerate"]=str(value)
+                        case "Composite:AvgBitrate":
+                            self.metadata["Average bitrate"]="{:.1f}".format(value/1000/1000)+"Mbps"
+                        case "Composite:ImageSize":
+                            self.metadata["Resolution"]=str(value).replace(' ','x')
+                        case "QuickTime:AudioSampleRate":
+                            self.metadata["Audio Sample rate"]="{:.1f}".format(value/1000)+"kHz"
+                        case "QuickTime:AudioBitsPerSample":
+                            self.metadata["Audio Bit depth"]=str(value)
+                        case "QuickTime:AudioChannels":
+                            self.metadata["Audio Channels"]=str(value)
+                        case "QuickTime:CompressorName":
+                            self.metadata["Video Compressor name"]=str(value)
+                        case "QuickTime:CompressorID":
+                            codec="unknown ("+value+")"
+                            match value:
+                                case "hvc1":
+                                    codec="H.265"
+                            self.metadata["Video codec"]=codec
 
         self.metadata_canvas = tk.Canvas(self.metadata_frame, highlightthickness=0, width=250,height=1000)
         self.metadata_canvas.grid(row=0, column=0, sticky='nswe')
@@ -290,7 +316,8 @@ class FullScreenItem(tk.Frame):
 
         self.attach_binds(self)
 
-        self.img = Image.open(self.best_file_path).convert("RGB")
+        if self.best_file["item_type"] in [ "image", ]:
+            self.img = Image.open(self.best_file_path).convert("RGB")
 
     def attach_binds(self, widget):
         widget.bind("<Configure>", lambda x: self.after_idle(self.update_size))
@@ -312,7 +339,7 @@ class FullScreenItem(tk.Frame):
             self.old_image_size = image_size
             if self.image:
                 self.image.destroy()
-            if self.best_file["item_type"] in ["image-preview", "image"]:
+            if self.best_file["item_type"] in [ "image"]:
                 image_resized=self.img.copy()
                 image_resized.thumbnail(image_size)
             else:
