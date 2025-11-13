@@ -60,7 +60,6 @@ class CountCallbackSet:
 
 
 class Item(tk.Frame):
-
     last_selected = None
     mouse_action = 1
 
@@ -132,8 +131,8 @@ class Item(tk.Frame):
             Item.mouse_action = 1
         self.dragged_over.add(self)
         if event.state & TK_SHIFT_MASK and Item.last_selected != None:
-            self.shift_select_callback(Item.last_selected,self,Item.mouse_action)
-        Item.last_selected=self
+            self.shift_select_callback(Item.last_selected, self, Item.mouse_action)
+        Item.last_selected = self
 
     def get_filename_path(self):
         return self.filename_path
@@ -176,8 +175,8 @@ class FullScreenItem(tk.Frame):
         self.metadata_frame = tk.Frame(self)
 
         with ExifToolHelper() as et:
-            metadata=et.get_metadata(self.best_file_path)
-            self.metadata={
+            metadata = et.get_metadata(self.best_file_path)
+            self.metadata = {
                     "Filename": "",
                     "Create date": "",
                     "Create time": ""
@@ -195,11 +194,11 @@ class FullScreenItem(tk.Frame):
                 for key, value in d.items():
                     match key:
                         case "File:FileName":
-                            self.metadata["Filename"]=value
+                            self.metadata["Filename"] = value
                         case "EXIF:Make":
-                            self.metadata["Camera make"]=value
+                            self.metadata["Camera make"] = value
                         case "EXIF:Model"|"QuickTime:Model":
-                            self.metadata["Camera model"]=value
+                            self.metadata["Camera model"] = value
                         case "EXIF:CreateDate"|"QuickTime:CreateDate":
                             try:
                                 create_date_notz = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
@@ -220,75 +219,75 @@ class FullScreenItem(tk.Frame):
                                 else:
                                     self.metadata["Shutter speed"] = str(value)+" s"
                         case "EXIF:ISO":
-                            self.metadata["ISO"]=str(value)
+                            self.metadata["ISO"] = str(value)
                         case "EXIF:FNumber":
                             self.metadata["Aperature"]="f"+str(value)
                         case "EXIF:Software"|"QuickTime:FirmwareVersion":
-                            self.metadata["Software version"]=value
+                            self.metadata["Software version"] = value
                         case "EXIF:SubSecTimeOriginal":
                             self.metadata["Create time"] += "."+str(value)
                         case "EXIF:ExposureCompensation"|"QuickTime:ExposureCompensation":
                             self.metadata["Exposure compensation"] = str(value)
                         case "EXIF:FocalLengthIn35mmFormat":
-                            self.metadata["Focal length (35mm)"]=str(value)+"mm"
+                            self.metadata["Focal length (35mm)"] = str(value)+"mm"
                         case "EXIF:Contrast":
-                            self.metadata["Contrast"]=str(value)
+                            self.metadata["Contrast"] = str(value)
                         case "EXIF:Saturation":
-                            self.metadata["Saturation"]=str(value)
+                            self.metadata["Saturation"] = str(value)
                         case "EXIF:Sharpness"|"QuickTime:Sharpness":
-                            self.metadata["Sharpness"]=str(value)
+                            self.metadata["Sharpness"] = str(value)
                         case "EXIF:SerialNumber"|"QuickTime:CameraSerialNumber":
-                            self.metadata["Serial Number"]=value
+                            self.metadata["Serial Number"] = value
                         case "APP6:HDRSetting"|"QuickTime:HDRVideo":
-                            self.metadata["HDR Setting"]=value
+                            self.metadata["HDR Setting"] = value
                         case "EXIF:DigitalZoomRatio"|"QuickTime:DigitalZoomAmount":
-                            self.metadata["Digital Zoom ratio"]=str(value)
+                            self.metadata["Digital Zoom ratio"] = str(value)
                         case "EXIF:LensModel":
-                            self.metadata["Lens model"]=value
+                            self.metadata["Lens model"] = value
                         case "MakerNotes:ImageStabilization":
-                            self.metadata["Image stabilization"]=str(value) #TODO figure what the values mean
+                            self.metadata["Image stabilization"] = str(value) #TODO figure what the values mean
                         case "MakerNotes:ElectronicFrontCurtainShutter":
-                            self.metadata["Electronic Front Curtain"]=str(value)
+                            self.metadata["Electronic Front Curtain"] = str(value)
                         case "MakerNotes:FocusMode":
-                            self.metadata["Focus mode"]=str(value) #TODO figure what the values mean
+                            self.metadata["Focus mode"] = str(value) #TODO figure what the values mean
                         case "MakerNotes:FocusLocation":
                             True #TODO maybe draw it?
                         case "MakerNotes:BatteryTemperature":
                             self.metadata["Battery temprature"]="{:.1f}".format(value)+"°C"#TODO make sure it's celsius
                         case "MakerNotes:BatteryLevel":
-                            self.metadata["Battery level"]=str(value)+"%"
+                            self.metadata["Battery level"] = str(value)+"%"
                         case "MakerNotes:ShutterCount":
-                            self.metadata["Shutter count"]=str(value)
+                            self.metadata["Shutter count"] = str(value)
                         case "Composite:FocusDistance2":
-                            self.metadata["Focus distance"]=str(value)+"m"
+                            self.metadata["Focus distance"] = str(value)+"m"
                         case "QuickTime:ElectronicStabilizationOn":
-                            self.metadata["S/W Image stabilization"]=str(value)
+                            self.metadata["S/W Image stabilization"] = str(value)
                         case "QuickTime:BitrateSetting":
-                            self.metadata["Video bitrate"]=str(value)
+                            self.metadata["Video bitrate"] = str(value)
                         #case "QuickTime:BitDepth":
-                        #    self.metadata["Bit depth"]=int(value/3)
+                        #    self.metadata["Bit depth"] = int(value/3)
                         case "QuickTime:VideoFrameRate":
-                            self.metadata["Framerate"]=str(value)
+                            self.metadata["Framerate"] = str(value)
                         case "Composite:AvgBitrate":
                             self.metadata["Average bitrate"]="{:.1f}".format(value/1000/1000)+"Mbps"
                         case "Composite:ImageSize":
-                            self.metadata["Resolution"]=str(value).replace(' ','x')
+                            self.metadata["Resolution"] = str(value).replace(' ','x')
                         case "QuickTime:AudioSampleRate":
                             self.metadata["Audio Sample rate"]="{:.1f}".format(value/1000)+"kHz"
                         case "QuickTime:AudioBitsPerSample":
-                            self.metadata["Audio Bit depth"]=str(value)
+                            self.metadata["Audio Bit depth"] = str(value)
                         case "QuickTime:AudioChannels":
-                            self.metadata["Audio Channels"]=str(value)
+                            self.metadata["Audio Channels"] = str(value)
                         case "QuickTime:CompressorName":
-                            self.metadata["Video Compressor name"]=str(value)
+                            self.metadata["Video Compressor name"] = str(value)
                         case "QuickTime:CompressorID":
                             codec="unknown ("+value+")"
                             match value:
                                 case "hvc1":
                                     codec="H.265"
-                            self.metadata["Video codec"]=codec
+                            self.metadata["Video codec"] = codec
 
-        self.metadata_canvas = tk.Canvas(self.metadata_frame, highlightthickness=0, width=250,height=1000)
+        self.metadata_canvas = tk.Canvas(self.metadata_frame, highlightthickness=0, width=250, height=1000)
         self.metadata_canvas.grid(row=0, column=0, sticky='nswe')
         self.metadata_canvas.grid_rowconfigure(0, weight=1)
         self.metadata_canvas.grid_columnconfigure(0, weight=1)
@@ -519,7 +518,7 @@ class ShellScriptWindow(tk.Frame):
         if self.query_project_queued_in_script == None:
             raise TypeError # This should never happen
 
-        destination_project_dir = self.get_destination_dir(project_name,not self.query_project_queued_in_script(project_name))
+        destination_project_dir = self.get_destination_dir(project_name, not self.query_project_queued_in_script(project_name))
 
         line = "ln -s " + self.treat_strings_for_posix_shell(os.path.relpath(os.path.join(self.input_data["sources"][0], file), destination_project_dir)) + " " + self.treat_strings_for_posix_shell(destination_project_dir) + "\n"
         if line not in self.script_written_lines:
@@ -556,13 +555,13 @@ class ShellScriptWindow(tk.Frame):
         self.update_bash_side_channel_write_fd(bash_side_channel_write_fd)
         self.script_written_lines.clear()
 
-    def mark_error_line(self,line):
+    def mark_error_line(self, line):
         for tag in self.syntax_highlighting_patterns:
             self.text_widget.tag_remove(tag, f"{line}.0", f"{line}.end")
         self.text_widget.tag_add("error", f"{line}.0", f"{line}.end")
         self.text_widget.see(f"{line}.0")
 
-    def unmark_error_line(self,line):
+    def unmark_error_line(self, line):
         self.text_widget.tag_remove("error", f"{line}.0", f"{line}.end")
         self.syntax_highlight_lines((line, ))
 
@@ -594,7 +593,7 @@ class ShellScriptWindow(tk.Frame):
                         self.text_widget.tag_add("quote_chars", end, end_)
 
     def new_project_callback(self, name):
-        line = "mkdir -p " + self.treat_strings_for_posix_shell(self.get_destination_dir(name,False))+"\n"
+        line = "mkdir -p " + self.treat_strings_for_posix_shell(self.get_destination_dir(name, False))+"\n"
         self.text_widget.config(state=tk.NORMAL)
         self.text_widget.insert(tk.END, line)
         self.text_widget.config(state=tk.DISABLED)
@@ -611,7 +610,7 @@ def spell_check(self):
     for tag in self.text.tag_names():
         self.text.tag_delete(tag)
     self.text.tag_configure('spell_error', underline=True, underlinefg='red')
-    fails=0
+    fails = 0
     for word in content.split(' '):
         word_to_check=re.sub(r'[^\w]', '', word.lower()).lower()
         if wordnet.synsets(word_to_check) == [] :
@@ -619,7 +618,7 @@ def spell_check(self):
                 if not any(True for _ in re.finditer('^[0-9]*$', word_to_check)):
                     position = content.find(word)
                     self.text.tag_add('spell_error', f'1.{position}', f'1.{position + len(word)}')
-                    fails=fails+1
+                    fails += 1
     return fails
 
 
@@ -634,10 +633,10 @@ class NewProject(tk.Toplevel):
         self.ShellScriptWindowCallback = ShellScriptWindowCallback
 
         self.entry_frame = tk.Frame(self)
-        self.entry_label = tk.Label(self.entry_frame,text="Name:")
-        self.entry_label.grid(row=0, column=0, padx=(5,0),pady=10)
-        self.text=tk.Text(self.entry_frame)
-        self.text.grid(row=0, column=1, sticky='we', padx=(5,9))
+        self.entry_label = tk.Label(self.entry_frame, text="Name:")
+        self.entry_label.grid(row=0, column=0, padx=(5, 0), pady=10)
+        self.text = tk.Text(self.entry_frame)
+        self.text.grid(row=0, column=1, sticky='we', padx=(5, 9))
         self.text.config(height=1)
         self.text.config(wrap='none')
         self.text.bind("<Return>", self.return_handle)
@@ -650,7 +649,7 @@ class NewProject(tk.Toplevel):
         self.danger_style.configure("Good.TButton", background="#82FF82")
         self.danger_style.map("Good.TButton", background=[('hover', '#00FF00')])
 
-        self.button_grid=tk.Frame(self)
+        self.button_grid = tk.Frame(self)
         self.spell_check_button = ttk.Button(self.button_grid, text="Spell check", command=self.spell_check_exec)
         self.spell_check_button.grid(row=0, column=0, padx=3, pady=3, sticky='we')
         self.space_to_underscore = ttk.Button(self.button_grid, text="Space to underscore", command=self.space_to_underscore_exec)
@@ -682,20 +681,19 @@ class NewProject(tk.Toplevel):
             self.spell_check_button.configure(style="Bad.TButton")
 
     def space_to_underscore_exec(self):
-        text=self.text.get("1.0", "1.end")
+        text = self.text.get("1.0", "1.end")
         self.text.delete('1.0', tk.END)
         self.text.insert(tk.END, text.replace(' ', '_'))
         self.space_to_underscore.configure(style="Good.TButton")
 
     def write_to_script_exec(self):
-        text=self.text.get("1.0", "1.end")
+        text = self.text.get("1.0", "1.end")
         self.ProjectListCallback(text)
         self.ShellScriptWindowCallback(text)
         self.destroy()
 
     def select_all(self, event=None):
         self.text.tag_add(tk.SEL, "1.0", tk.END)
-        #self.text.icursor('end')
 
 
 class  ProjectList(tk.Frame):
@@ -877,7 +875,7 @@ class MediaSelectorApp:
         self.clear_script_button.pack(side=tk.LEFT, padx=2, pady=2)
 
         self.clear_script_button = ttk.Button(self.toolbar, text="Export script", command=self.export_shell_script)
-        self.clear_script_button.pack(side=tk.LEFT, padx=(2,4), pady=2)
+        self.clear_script_button.pack(side=tk.LEFT, padx=(2, 4), pady=2)
 
         ttk.Separator(self.toolbar, orient='vertical').pack(side=tk.LEFT, padx=(5, 5), fill=tk.Y)
 
@@ -961,7 +959,7 @@ class MediaSelectorApp:
 
         shell_script_string = self.ShellScriptWindow.get_script()
 
-        bash_process = subprocess.Popen(["bash", "-c", shell_script_string],pass_fds=(self.bash_side_channel_write_fd, ))
+        bash_process = subprocess.Popen(["bash", "-c", shell_script_string], pass_fds=(self.bash_side_channel_write_fd, ))
 
         os.close(self.bash_side_channel_write_fd)
         self.bash_side_channel_write_fd = None
