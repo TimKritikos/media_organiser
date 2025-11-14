@@ -451,6 +451,10 @@ class ItemGrid(tk.Frame):
         elif event.num == 5:
             self.canvas.yview_scroll(1, "units")
 
+    def update_scrollregion(self, event=None):
+        self.item_grid.update_idletasks()
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
     def update_item_layout(self, event=None):
         canvas_width = self.canvas.winfo_width()
 
@@ -464,6 +468,8 @@ class ItemGrid(tk.Frame):
                 row = idx // items_per_row
                 col = idx % items_per_row
                 item.grid(row=row, column=col, padx=self.item_padding, pady=self.item_padding, sticky="nsew")
+            if self.last_items_per_row<items_per_row:
+                self.update_scrollregion()
             self.last_items_per_row = items_per_row
 
     def shift_select(self, start, end, action):
