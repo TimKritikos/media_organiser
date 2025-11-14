@@ -15,12 +15,12 @@ import nltk
 from nltk.corpus import words
 from nltk.corpus import wordnet
 import mpv
+import threading
 
 #TODO: Check if a file is already linked in the destination directory
 #TODO: add a file view mode
 #TODO: add multiple source and destinations support
 #TODO: Sort items by create date in the grid
-#TODO: Add second thread for loading images to bring up the UI faster
 #TODO: Add metadata specialised metadata for Optical Image stabilisation and other professional camera metadata that could possibly be useful in selection of images
 
 TK_SHIFT_MASK    = 0x0001
@@ -405,36 +405,52 @@ class FullScreenItem(tk.Frame):
 
 
 class ItemGrid(tk.Frame):
-    def __init__(self, root, thumb_size, item_border_size, item_padding, selected_items, input_data, full_screen_callback, select_all_callback):
+    def __init__(self, root, thumb_size, item_border_size, item_padding, selected_items, input_data, full_screen_callback, select_all_callback, update_progress_bar_callback):
         super().__init__(root)
 
         self.thumb_size = thumb_size
         self.item_border_size = item_border_size
         self.item_padding = item_padding
         self.last_items_per_row = 0
+        self.last_item_count = 0
         self.dragged_over = set()
         self.items = []
+        self.selected_items = selected_items
+        self.input_data = input_data
+        self.full_screen_callback = full_screen_callback
+        self.select_all_callback = select_all_callback
+        self.update_progress_bar_callback = update_progress_bar_callback
 
-        self.item_list = load_interface_data(input_data, 0, 'list-thumbnails')
+        self.item_list = load_interface_data(self.input_data, 0, 'list-thumbnails')
 
         self.canvas = tk.Canvas(self, highlightthickness=0)
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.item_grid = tk.Frame(self.canvas)
+
         self.canvas_window = self.canvas.create_window((0, 0), window=self.item_grid, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
 
-        for item in self.item_list["file_list"]:
-            self.items.append(Item(self.item_grid, item, selected_items, input_data, 0, self.thumb_size, root.cget('bg'), "#5293fa", self.bind_grid_scroll, self.unbind_grid_scroll, full_screen_callback, self.shift_select, select_all_callback, bd=self.item_border_size))
+        threading.Thread(target=self.load_items_thread, daemon=True).start()
 
         self.item_grid.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", lambda x: self.canvas.after_idle(self.update_item_layout))
         for i in (self.canvas, self.item_grid):
             i.bind("<Enter>", self.bind_grid_scroll)
             i.bind("<Leave>", self.unbind_grid_scroll)
-            i.bind("<Control-a>", select_all_callback)
-            i.bind("<Control-A>", select_all_callback)
+            i.bind("<Control-a>", self.select_all_callback)
+            i.bind("<Control-A>", self.select_all_callback)
+
+    def add_item(self,item):
+            self.items.append(Item(self.item_grid, item, self.selected_items, self.input_data, 0, self.thumb_size, self.cget('bg'), "#5293fa", self.bind_grid_scroll, self.unbind_grid_scroll, self.full_screen_callback, self.shift_select, self.select_all_callback, bd=self.item_border_size))
+            self.update_item_layout()
+            self.items[-1].update_idletasks()
+            self.update_progress_bar_callback(len(self.items))
+
+    def load_items_thread(self):
+        for item in self.item_list["file_list"]:
+            self.after(0, self.add_item,item)
 
     def bind_grid_scroll(self, event):
         self.canvas.bind_all("<Button-4>", self.scroll_steps)
@@ -471,6 +487,15 @@ class ItemGrid(tk.Frame):
             if self.last_items_per_row<items_per_row:
                 self.update_scrollregion()
             self.last_items_per_row = items_per_row
+            self.last_item_count = len(self.items)
+        elif self.last_item_count != len(self.items):
+            idx = len(self.items)-1
+            item = self.items[-1]
+            row = idx // items_per_row
+            col = idx % items_per_row
+            item.grid(row=row, column=col, padx=self.item_padding, pady=self.item_padding, sticky="nsew")
+            self.last_item_count = idx
+            self.canvas.yview_moveto(1)
 
     def shift_select(self, start, end, action):
         select = 0
@@ -858,7 +883,8 @@ class MediaSelectorApp:
 
         self.grid_and_toolbar = tk.Frame(self.list_grid_pane)
 
-        self.ItemGrid = ItemGrid(self.grid_and_toolbar, thumb_size, item_border_size, item_padding, self.selected_items, self.input_data, self.enter_full_screen, self.select_all_callback)
+        self.ItemGrid = ItemGrid(self.grid_and_toolbar, thumb_size, item_border_size, item_padding, self.selected_items, self.input_data, self.enter_full_screen, self.select_all_callback, self.update_progress_bar)
+        self.item_count = len(self.ItemGrid.item_list["file_list"])
 
         self.toolbar = tk.Frame(self.grid_and_toolbar, bd=3)
         self.toolbar.config(relief="groove")
@@ -894,13 +920,15 @@ class MediaSelectorApp:
         self.select_invert_button = tk.Button(self.toolbar, text="Invert selections", command=self.select_invert)
         self.select_invert_button.pack(side=tk.LEFT, padx=2)
 
-        self.item_count = tk.Label(self.toolbar, text="")
-        self.item_count.pack(side=tk.RIGHT, padx=2)
+        self.item_count_label = tk.Label(self.toolbar, text="")
+        self.item_count_label.pack(side=tk.RIGHT, padx=2)
 
         ttk.Separator(self.toolbar, orient='vertical').pack(side=tk.RIGHT, padx=(5, 5), fill=tk.Y)
 
+        self.progress_bar = ttk.Progressbar(self.grid_and_toolbar)
+
         self.ItemGrid.grid(row=0, column=0, sticky='nswe')
-        self.toolbar.grid(row=1, column=0, sticky='we')
+        self.progress_bar.grid(row=1, column=0, sticky='we')
         self.grid_and_toolbar.grid_rowconfigure(0, weight=1)
         self.grid_and_toolbar.grid_columnconfigure(0, weight=1)
 
@@ -930,6 +958,13 @@ class MediaSelectorApp:
         self.selected_items.call_callbacks() # Write initial text on the counter label
 
         self.shell_script_error_line = None
+
+    def update_progress_bar(self, items):
+        if items != self.item_count:
+            self.progress_bar["value"] = (items*100)/self.item_count
+        else:
+            self.progress_bar.grid_forget()
+            self.toolbar.grid(row=1, column=0, sticky='we')
 
     def enter_full_screen(self, path):
         self.ItemGrid.grid_forget()
@@ -989,7 +1024,7 @@ class MediaSelectorApp:
             self.ProjectList.full_update_list()
 
     def update_counter(self, count):
-        self.item_count.config(text="Item count: "+str(count))
+        self.item_count_label.config(text="Item count: "+str(count))
 
     def select_all_callback(self, event=None):
         self.select_all()
