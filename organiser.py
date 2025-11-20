@@ -70,19 +70,19 @@ class Item(tk.Frame):
         self.dragged_over = set()
         self.bg_color = bg_color
         self.select_color = select_color
-        self.filename_path = os.path.join(input_data["sources"][input_data_source_index], item_data["filename"])
+        self.file_path = os.path.join(input_data["sources"][input_data_source_index], item_data["file_path"])
         self.full_screen_callback = full_screen_callback
         self.shift_select_callback = shift_select_callback
         self.select_all_callback = select_all_callback
 
-        if not self.filename_path or not os.path.exists(self.filename_path):
+        if not self.file_path or not os.path.exists(self.file_path):
             print("ERROR: file in json from source media interface executable couldn't be found")
             return -1
 
         #Create thumbnail image
         if item_data["file_type"] in ["image-preview", "image"]:
             try:
-                img = Image.open(self.filename_path).convert("RGB")
+                img = Image.open(self.file_path).convert("RGB")
                 img.thumbnail(thumb_size)
                 self.photo_obj = ImageTk.PhotoImage(img)
             except Exception:
@@ -94,7 +94,7 @@ class Item(tk.Frame):
 
         self.image = tk.Label(self, image=self.photo_obj, borderwidth=0)
         self.image.pack()
-        self.caption = tk.Label(self, text=os.path.basename(self.filename_path), wraplength=thumb_size[0], borderwidth=0)
+        self.caption = tk.Label(self, text=os.path.basename(self.file_path), wraplength=thumb_size[0], borderwidth=0)
         self.caption.pack()
 
         for i in (self.image, self.caption, self):
@@ -106,24 +106,24 @@ class Item(tk.Frame):
 
     def key_callback(self, event):
         if event.char == '\r' :
-            self.full_screen_callback(self.filename_path)
+            self.full_screen_callback(self.file_path)
         if event.state & TK_CONTROL_MASK and event.keysym == 'a':
             self.select_all_callback()
 
     def deselect(self):
         for i in (self.image, self.caption, self):
             i.config(bg=self.bg_color)
-        if self.filename_path in self.selected_items:
-            self.selected_items.remove(self.filename_path)
+        if self.file_path in self.selected_items:
+            self.selected_items.remove(self.file_path)
 
     def select(self):
         for i in (self.image, self.caption, self):
             i.config(bg=self.select_color)
-        self.selected_items.add(self.filename_path)
+        self.selected_items.add(self.file_path)
 
     def on_click(self, event):
         self.dragged_over.clear()
-        if self.filename_path in self.selected_items:
+        if self.file_path in self.selected_items:
             self.deselect()
             Item.mouse_action = 0
         else:
@@ -134,8 +134,8 @@ class Item(tk.Frame):
             self.shift_select_callback(Item.last_selected, self, Item.mouse_action)
         Item.last_selected = self
 
-    def get_filename_path(self):
-        return self.filename_path
+    def get_file_path(self):
+        return self.file_path
 
     def on_drag(self, event):
         widget = event.widget.winfo_containing(event.x_root, event.y_root)
@@ -152,7 +152,7 @@ class Item(tk.Frame):
 
 
 class FullScreenItem(tk.Frame):
-    def __init__(self, root, input_data, filename, exit_callback, **kwargs):
+    def __init__(self, root, input_data, file_path, exit_callback, **kwargs):
         super().__init__(root, **kwargs)
 
         self.best_file = None
@@ -160,7 +160,7 @@ class FullScreenItem(tk.Frame):
         self.image = None
         self.old_image_size = (0, 0)
 
-        data = load_interface_data(input_data, 0, 'get-related', arg=filename)
+        data = load_interface_data(input_data, 0, 'get-related', arg=file_path)
 
         for file in data["file_list"]:
             if file["item_type"] == file["file_type"]:
@@ -169,7 +169,7 @@ class FullScreenItem(tk.Frame):
         if self.best_file == None:
             raise ValueError
 
-        self.best_file_path = os.path.join(input_data["sources"][0], self.best_file["filename"])
+        self.best_file_path = os.path.join(input_data["sources"][0], self.best_file["file_path"])
 
         self.content_frame = tk.Frame(self)
         self.metadata_frame = tk.Frame(self)
@@ -545,13 +545,13 @@ class ShellScriptWindow(tk.Frame):
     def treat_strings_for_posix_shell(self, string):
         return "'"+string.replace('\'','\'"\'"\'')+"'"
 
-    def add_file(self, file, project_name):
+    def add_file(self, file_path, project_name):
         if self.query_project_queued_in_script == None:
             raise TypeError # This should never happen
 
         destination_project_dir = self.get_destination_dir(project_name, not self.query_project_queued_in_script(project_name))
 
-        line = "ln -s " + self.treat_strings_for_posix_shell(os.path.relpath(os.path.join(self.input_data["sources"][0], file), destination_project_dir)) + " " + self.treat_strings_for_posix_shell(destination_project_dir) + "\n"
+        line = "ln -s " + self.treat_strings_for_posix_shell(os.path.relpath( file_path, destination_project_dir)) + " " + self.treat_strings_for_posix_shell(destination_project_dir) + "\n"
         if line not in self.script_written_lines:
             self.text_widget.config(state=tk.NORMAL)
             self.text_widget.insert(tk.END, line)
@@ -835,43 +835,32 @@ class  ProjectList(tk.Frame):
             self.searchbox_status = 'unfocused'
 
 
-def normalise_and_check(paths, check, string_to_print):
-    output = []
-    for i in paths:
-        normalised = os.path.normpath(i)
-        if check(normalised):
-            output.append(normalised)
-        else:
-            raise FileNotFoundError("Failed to normalise "+string_to_print+" '"+i+"'")
-    return output
-
-
 class MediaSelectorApp:
     def __init__(self, root, unsanitised_input_data, thumb_size=(180, 180), item_border_size=6, item_padding=10):
-        for interface in unsanitised_input_data["interfaces"]:
-            if not os.path.isfile(interface):
-                raise CmdLineError("Following provided interface file doesn\'t exist '"+interface+"'")
-            if not os.access(interface, os.X_OK):
-                raise CmdLineError("Following provided interface file isn\'t executable '"+interface+"'")
+        self.input_data = {}
+
+        if not os.path.isfile(unsanitised_input_data["interface"]):
+            raise CmdLineError("Following provided interface file doesn't exist or isn't a file: '"+unsanitised_input_data["interface"]+"'")
+        if not os.access(unsanitised_input_data["interface"], os.X_OK):
+            raise CmdLineError("Following provided interface file isn't executable: '"+unsanitised_input_data["interface"]+"'")
+        self.input_data["interface"]=os.path.normpath(unsanitised_input_data["interface"])
+
+        self.input_data["sources"]=[]
         for source in unsanitised_input_data["sources"]:
             if not os.path.isdir(source):
-                raise CmdLineError("Following provided source directory doesn\'t exist: '"+source+"'")
+                raise CmdLineError("Following provided source directory doesn't exist: '"+source+"'")
+            self.input_data["sources"].append(os.path.normpath(source))
+
+        self.input_data["destinations"]=[]
         for destination in unsanitised_input_data["destinations"]:
             if not os.path.isdir(destination):
-                raise CmdLineError("Following provided destination directory doesn\'t exist '"+destination+"'")
+                raise CmdLineError("Following provided destination directory doesn't exist: '"+destination+"'")
+            self.input_data["destinations"].append(os.path.normpath(destination))
 
-        if len(unsanitised_input_data["sources"]) != len(unsanitised_input_data["interfaces"]) and len(unsanitised_input_data["interfaces"]) != 1:
-            raise CmdLineError("More than one instances of the interface flag must match the number of instances of the source flag to match each interface in the order they appear in the command line to each source in the order they appear in the command line")
+        self.input_data["destinations_append"]=unsanitised_input_data["destinations_append"]
 
         if len(unsanitised_input_data["sources"]) != 1 or len(unsanitised_input_data["destinations"]) != 1:
             raise CmdLineError("Multiple source directories or destination directories aren't implemented yet")
-
-        self.input_data = {
-            "interfaces": normalise_and_check(unsanitised_input_data["interfaces"], os.path.isfile,"interface"),
-            "sources": normalise_and_check(unsanitised_input_data["sources"], os.path.isdir,"source"),
-            "destinations": normalise_and_check(unsanitised_input_data["destinations"], os.path.isdir,"destination"),
-            "destinations_append": unsanitised_input_data["destinations_append"],
-        }
 
         self.selected_items = CountCallbackSet()  # set of selected file paths
 
@@ -1035,12 +1024,12 @@ class MediaSelectorApp:
 
     def select_none(self):
         for i in self.ItemGrid.items:
-            if i.get_filename_path() in self.selected_items:
+            if i.get_file_path() in self.selected_items:
                 i.deselect()
 
     def select_invert(self):
         for i in self.ItemGrid.items:
-            if i.get_filename_path() in self.selected_items:
+            if i.get_file_path() in self.selected_items:
                 i.deselect()
             else:
                 i.select()
@@ -1065,7 +1054,7 @@ class MediaSelectorApp:
         try:
             for file_id in self.selected_items:
                 for file_to_link in load_interface_data(self.input_data, 0, 'get-related', arg=file_id)["file_list"]:
-                    self.ShellScriptWindow.add_file(file_to_link["filename"], selected_dir)
+                    self.ShellScriptWindow.add_file(file_to_link["file_path"], selected_dir)
         except FileNotFoundError as error_message:
             messagebox.showinfo("ERROR", error_message)
         except ValueError as error_message:
@@ -1075,29 +1064,22 @@ class MediaSelectorApp:
 
 
 def load_interface_data(input_data , source_number, query, arg=None):
-    pass_id = os.path.basename(os.path.normpath(input_data["sources"][source_number]))
-    if arg != None:
-        arg = os.path.relpath(arg, input_data["sources"][source_number])
-
     match query:
         case 'list-thumbnails':
-            data = json.loads(subprocess.check_output([input_data["interfaces"][source_number], '-l', pass_id]))
+            #print(f"{input_data["interface"][0]} -l {input_data["sources"][source_number]}")
+            data = json.loads(subprocess.check_output([input_data["interface"], '-l', os.path.normpath(input_data["sources"][source_number])]))
         case 'get-related':
             if arg == None:
                 print("Internal error: called load_interface_data without passing arg")
                 return None
-            data = json.loads(subprocess.check_output([input_data["interfaces"][source_number], '-g', pass_id, arg]))
-        case 'get-info':
-            if arg == None:
-                print("Internal error: called load_interface_data without passing arg")
-                return None
-            data = json.loads(subprocess.check_output([input_data["interfaces"][source_number], '-i', pass_id, arg]))
+            data = json.loads(subprocess.check_output([input_data["interface"], '-g', arg]))
         case _:
             raise KeyError
 
-    if data["api_version"].split('.')[0] != "v1": #or (int)(card_item_list["api_version"].split('.')[1]) < 1:
-        print("ERROR invalid api version on source media interface")
-        return None
+    #TODO: Enable before release
+    #if data["version"] != "v0.1.0":
+    #    print("ERROR invalid api version on source media interface")
+    #    return None
 
     return data
 
@@ -1109,7 +1091,7 @@ def main():
     root.geometry("1000x600")
 
     parser = argparse.ArgumentParser(description='Select and symlink media from one directory to another')
-    parser.add_argument('-i', '--interface',          type=str, action='append',  required=True, help='Path to source direcotry interface executable')
+    parser.add_argument('-i', '--interface',          type=str,                   required=True, help='Path to source direcotry interface executable')
     parser.add_argument('-s', '--source',             type=str, action='append',  required=True, help='Path to the source directory of media to get linked. This can be entered multiple times')
     parser.add_argument('-d', '--destination',        type=str, action='append',  required=True, help='Path to the distention directory for the links to stored in. This can be entered multiple times')
     parser.add_argument('-a', '--destination-append', type=str,                                  help='Path to be appended to the project directory selected in the destination directory. For example if media needs to be linked in a sub-folder')
@@ -1118,7 +1100,7 @@ def main():
     args = parser.parse_args()
 
     input_data = {
-        "interfaces": args.interface,
+        "interface": args.interface,
         "sources": args.source,
         "destinations": args.destination,
         "destinations_append": (args.destination_append if args.destination_append is not None else ""),
