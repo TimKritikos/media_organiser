@@ -39,7 +39,7 @@ class ShellScriptWindow(tk.Frame):
         if self.query_project_queued_in_script == None:
             raise TypeError # This should never happen
 
-        destination_project_dir = self.get_destination_dir(project_name, not self.query_project_queued_in_script(project_name))
+        destination_project_dir = self.get_destination_dir(project_name)
 
         line = "ln -s " + self.treat_strings_for_posix_shell(os.path.relpath( file_path, destination_project_dir)) + " " + self.treat_strings_for_posix_shell(destination_project_dir) + "\n"
         if line not in self.script_written_lines:
@@ -53,10 +53,13 @@ class ShellScriptWindow(tk.Frame):
     def get_script(self):
         return self.text_widget.get("1.0", tk.END)
 
-    def get_destination_dir(self, project_name, expected_to_exist):
+    def get_destination_dir(self, project_name):
+        if self.query_project_queued_in_script == None:
+            raise TypeError # This should never happen
+
         destination_project_dir = os.path.join(self.input_data["destinations"][0], project_name, self.input_data["destinations_append"], '.')
 
-        if expected_to_exist and not os.path.isdir(destination_project_dir):
+        if not self.query_project_queued_in_script(project_name) and not os.path.isdir(destination_project_dir):
             raise FileNotFoundError("Selected project directory with the set destination append path doesn't exist")
             return
 
@@ -113,7 +116,7 @@ class ShellScriptWindow(tk.Frame):
                         self.text_widget.tag_add("quote_chars", end, end_)
 
     def new_project_callback(self, name):
-        line = "mkdir -p " + self.treat_strings_for_posix_shell(self.get_destination_dir(name, False))+"\n"
+        line = "mkdir -p " + self.treat_strings_for_posix_shell(self.get_destination_dir(name))+"\n"
         self.text_widget.config(state=tk.NORMAL)
         self.text_widget.insert(tk.END, line)
         self.text_widget.config(state=tk.DISABLED)

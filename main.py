@@ -13,7 +13,6 @@ import shell_script_window
 import spell_check
 import media_interface
 
-#TODO: Check if a file is already linked in the destination directory
 #TODO: add a file view mode
 #TODO: add multiple source and destinations support
 #TODO: Sort items by create date in the grid
@@ -257,8 +256,8 @@ class MediaSelectorApp:
             f.write(self.ShellScriptWindow.get_script())
 
     def add_to_script(self):
-        selected_dir = self.ProjectList.get_selected_dir()
-        if not selected_dir:
+        selected_project = self.ProjectList.get_selected_dir()
+        if not selected_project:
             messagebox.showinfo("Selection", "No project selection")
             return
 
@@ -266,10 +265,21 @@ class MediaSelectorApp:
             messagebox.showinfo("Selection", "No items selected.")
             return
 
+        linked_already=[]
+        destination_dir=self.ShellScriptWindow.get_destination_dir(selected_project);
+        if not self.ProjectList.query_project_queued_in_script(selected_project) :
+            for file in os.listdir(destination_dir):
+                link_destination=os.path.normpath(os.path.join(destination_dir,(os.readlink(os.path.join(destination_dir,file)))))
+                linked_already.append((link_destination,file))
+
         try:
             for file_id in self.selected_items:
                 for file_to_link in media_interface.load_interface_data(self.input_data, 0, 'get-related', arg=file_id)["file_list"]:
-                    self.ShellScriptWindow.add_file(file_to_link["file_path"], selected_dir)
+                    for i in linked_already:
+                        if i[0] == file_to_link["file_path"]:
+                            messagebox.showinfo("Error", f"ERROR: file \"{file_to_link["file_path"]}\" is already linked as \"{i[1]}\" in \"{destination_dir}\"")
+                            return
+                    self.ShellScriptWindow.add_file(file_to_link["file_path"], selected_project)
         except FileNotFoundError as error_message:
             messagebox.showinfo("ERROR", error_message)
         except ValueError as error_message:
