@@ -2,6 +2,9 @@ import tkinter as tk
 import threading
 import os
 from PIL import Image, ImageTk
+import mpv
+import time
+from datetime import datetime
 
 import constants
 
@@ -141,6 +144,26 @@ class Item(tk.Frame):
                 self.photo_obj = ImageTk.PhotoImage(img)
             except Exception:
                 img = Image.new("RGB", thumb_size, (100, 100, 100))
+                self.photo_obj = ImageTk.PhotoImage(img)
+        elif item_data["file_type"] == "video":
+                player = mpv.MPV(vo='null',ao='null')
+                player.pause=True
+                player.play(self.file_path)
+                start_time=datetime.now()
+                while True:
+                    if (datetime.now()-start_time).total_seconds() > 15 :
+                        #Timeout
+                        img = Image.new("RGB", thumb_size, (100, 100, 100))
+                        print("Timed out loading video '"+self.file_path+"'")
+                        break;
+                    try:
+                        img=player.screenshot_raw()
+                        break;
+                    except Exception:
+                        time.sleep(.2)
+                player.command('quit')
+                del player
+                img.thumbnail(thumb_size)
                 self.photo_obj = ImageTk.PhotoImage(img)
         else:
             img = Image.new("RGB", thumb_size, (60, 60, 60))
