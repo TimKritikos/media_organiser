@@ -43,11 +43,16 @@ class FullScreenItem(tk.Frame):
 
         self.best_file_path = self.best_file["file_path"]
 
+        if "metadata_file" in data:
+            self.exif_path = data["metadata_file"]
+        else:
+            self.exif_path = self.best_file_path
+
         self.content_frame = tk.Frame(self)
         self.metadata_frame = tk.Frame(self)
 
         with ExifToolHelper() as et:
-            metadata = et.get_metadata(self.best_file_path)
+            metadata = et.get_metadata(self.exif_path)
             self.metadata = {
                     "Filename": "",
                     "Create date": "",

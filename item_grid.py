@@ -5,6 +5,8 @@ from PIL import Image, ImageTk
 import mpv
 import time
 from datetime import datetime
+from exiftool import ExifToolHelper
+from datetime import timezone
 
 import constants
 
@@ -46,11 +48,15 @@ class ItemGrid(tk.Frame):
             i.bind("<Control-a>", self.select_all_callback)
             i.bind("<Control-A>", self.select_all_callback)
 
+
     def add_item(self,item):
             self.items.append(Item(self.item_grid, item, self.selected_items, self.input_data, 0, self.thumb_size, self.cget('bg'), "#5293fa", self.bind_grid_scroll, self.unbind_grid_scroll, self.full_screen_callback, self.shift_select, self.select_all_callback, bd=self.item_border_size))
             self.update_item_layout()
             self.items[-1].update_idletasks()
             self.update_progress_bar_callback(len(self.items))
+            if len(self.item_list["file_list"]) == len(self.items):
+                self.items.sort(key=lambda x: x.create_epoch)
+                self.update_item_layout(force_regrid=True)
 
     def load_items_thread(self):
         for item in self.item_list["file_list"]:
@@ -75,12 +81,13 @@ class ItemGrid(tk.Frame):
         self.item_grid.update_idletasks()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
-    def update_item_layout(self, event=None):
+
+    def update_item_layout(self, event=None, force_regrid=False):
         canvas_width = self.canvas.winfo_width()
 
         items_per_row = max(1, canvas_width // (self.thumb_size[0] + self.item_border_size*2 + self.item_padding*2))
 
-        if self.last_items_per_row != items_per_row:
+        if self.last_items_per_row != items_per_row or force_regrid==True:
             for item in self.items:
                 item.grid_forget()
 
@@ -128,6 +135,10 @@ class Item(tk.Frame):
         self.bg_color = bg_color
         self.select_color = select_color
         self.file_path = item_data["file_path"]
+        if "metadata_file" in item_data:
+            self.exif_path = item_data["metadata_file"]
+        else:
+            self.exif_path = self.file_path
         self.full_screen_callback = full_screen_callback
         self.shift_select_callback = shift_select_callback
         self.select_all_callback = select_all_callback
@@ -180,6 +191,19 @@ class Item(tk.Frame):
             i.bind("<Enter>", enter_callback)
             i.bind("<Leave>", leave_callback)
             i.bind("<Key>", self.key_callback)
+
+        self.create_epoch=-1
+        with ExifToolHelper() as et:
+            metadata = et.get_metadata(self.exif_path)
+            for d in metadata:
+                for key, value in d.items():
+                    match key:
+                        case "EXIF:CreateDate"|"QuickTime:CreateDate": #TODO add subseconds
+                            create_date_notz = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                            create_date = create_date_notz.replace(tzinfo=timezone.utc)
+                            self.create_epoch = int(create_date.timestamp())
+        if self.create_epoch == -1:
+            print(f"Warning: No create date could be found for file {self.file_path}")
 
     def key_callback(self, event):
         if event.char == '\r' :
