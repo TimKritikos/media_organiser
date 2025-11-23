@@ -41,7 +41,7 @@ class FullScreenItem(tk.Frame):
         if self.best_file == None:
             raise ValueError
 
-        self.best_file_path = os.path.join(input_data["sources"][0], self.best_file["file_path"])
+        self.best_file_path = self.best_file["file_path"]
 
         self.content_frame = tk.Frame(self)
         self.metadata_frame = tk.Frame(self)

@@ -127,7 +127,7 @@ class Item(tk.Frame):
         self.dragged_over = set()
         self.bg_color = bg_color
         self.select_color = select_color
-        self.file_path = os.path.join(input_data["sources"][input_data_source_index], item_data["file_path"])
+        self.file_path = item_data["file_path"]
         self.full_screen_callback = full_screen_callback
         self.shift_select_callback = shift_select_callback
         self.select_all_callback = select_all_callback
