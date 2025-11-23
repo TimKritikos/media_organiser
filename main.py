@@ -13,7 +13,6 @@ import shell_script_window
 import spell_check
 import media_interface
 
-#TODO: add a file view mode
 #TODO: add multiple source and destinations support
 #TODO: Sort items by create date in the grid
 #TODO: Add metadata specialised metadata for Optical Image stabilisation and other professional camera metadata that could possibly be useful in selection of images

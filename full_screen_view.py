@@ -9,6 +9,20 @@ from tkinter import ttk
 
 import media_interface
 
+def get_video_length(file):
+    player = mpv.MPV(vo='null',ao='null')
+    player.pause=True
+    player.play(file)
+    start_time=datetime.now()
+    while player.duration == None:
+        if (datetime.now()-start_time).total_seconds() > 15 :
+            #Timeout
+            break;
+    ret=player.duration
+    player.command('quit')
+    del player
+    return ret
+
 class FullScreenItem(tk.Frame):
     def __init__(self, root, input_data, file_path, exit_callback, **kwargs):
         super().__init__(root, **kwargs)
@@ -192,23 +206,75 @@ class FullScreenItem(tk.Frame):
             self.attach_binds(self.video_frame)
             self.attach_binds(self.control_frame)
 
+            self.video_parts_matching=[]
+
+            related = media_interface.load_interface_data(input_data, 0, 'get-related', arg=file_path)
+
+            start=0
+            end=0
+            for part_id_to_process in range(1,self.best_file["part_count"]+1):
+                for i in related["file_list"]:
+                    if i["part_num"] == part_id_to_process and i["file_type"] == 'video':
+                        file=i
+                        break;
+                length=get_video_length(file["file_path"])
+                start=end
+                end=start+length
+                self.video_parts_matching.append((file["file_path"],start,end))
+
             window_id = self.video_frame.winfo_id()
             self.mpv = mpv.MPV( wid=window_id, vo='x11', keep_open=True)
 
-            if self.best_file["file_type"] == "video":
-                self.mpv.pause = True
-                self.video = self.mpv.play(self.best_file_path)
+            self.mpv.pause = True
+            self.playing_file=self.video_parts_matching[0]
+            self.video = self.mpv.play(self.playing_file[0])
 
             self.mpv.observe_property('time-pos', self.video_time_callback)
+            self.mpv.observe_property('eof-reached', self.on_end_file)
+
+    def on_end_file(self, name, value):
+        get_next=False
+        if value is True:
+            for i in self.video_parts_matching:
+                if get_next==True:
+                    self.switch_video_files_mpv(i)
+                    break;
+                if i[0] == self.playing_file[0]:
+                    get_next=True
+
 
     def video_time_callback(self, name, value):
-        if value != None and self.mpv.duration != None:
-            self.scale.set((value*100)/self.mpv.duration)
+        scale_time_length = self.video_parts_matching[-1][2]
+        if value != None :
+            self.scale.set(((value+self.playing_file[1])*100)/scale_time_length)
+
+    def switch_video_files_mpv(self, new_file):
+        self.playing_file=new_file
+        self.video = self.mpv.play(self.playing_file[0])
+        #Wait for it to load the new video
+        start_time=datetime.now()
+        while ( self.mpv.time_pos == None ): #or self.mpv.time_pos < .2):
+            if (datetime.now()-start_time).total_seconds() > 15 :
+                #Timeout
+                break;
 
     def video_scale_click(self, event):
-        scale_length = self.scale.winfo_width()
-        self.scale.set((event.x/scale_length)*100)
-        self.mpv.time_pos = (event.x/scale_length)*self.mpv.duration
+        orig_pause=self.mpv.pause
+        self.mpv.pause=True
+        scale_pixel_length = self.scale.winfo_width()
+        scale_time_length = self.video_parts_matching[-1][2]
+        self.scale.set((event.x/scale_pixel_length)*100)
+
+        new_time = (event.x/scale_pixel_length)*scale_time_length
+        for i in self.video_parts_matching:
+            if i[2] > new_time:
+                file_to_play=i
+                break;
+        if self.playing_file[0]!=file_to_play[0]:
+            self.switch_video_files_mpv(file_to_play)
+        relative_time=new_time-self.playing_file[1];
+        self.mpv.time_pos=relative_time
+        self.mpv.pause=orig_pause
 
     def video_play_pause(self):
         if self.mpv.pause == False:
