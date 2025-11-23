@@ -203,9 +203,7 @@ class FullScreenItem(tk.Frame):
 
     def video_time_callback(self, name, value):
         if value != None and self.mpv.duration != None:
-            self.updating_video_scale = True
             self.scale.set((value*100)/self.mpv.duration)
-            self.updating_video_scale = False
 
     def video_scale_click(self, event):
         scale_length = self.scale.winfo_width()
