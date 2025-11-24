@@ -48,7 +48,7 @@ class CountCallbackSet:
 
 
 class MediaSelectorApp:
-    def __init__(self, root, unsanitised_input_data, thumb_size=(180, 180), item_border_size=6, item_padding=10):
+    def __init__(self, root, unsanitised_input_data, thumb_size=(180, 180), item_border_size=6, item_padding=10, profile_item_loading_filename=None):
         self.input_data = {}
 
         if not os.path.isfile(unsanitised_input_data["interface"]):
@@ -84,7 +84,7 @@ class MediaSelectorApp:
 
         self.grid_and_toolbar = tk.Frame(self.list_grid_pane)
 
-        self.ItemGrid = item_grid.ItemGrid(self.grid_and_toolbar, thumb_size, item_border_size, item_padding, self.selected_items, self.input_data, self.enter_full_screen, self.select_all_callback, self.update_progress_bar, media_interface.load_interface_data)
+        self.ItemGrid = item_grid.ItemGrid(self.grid_and_toolbar, thumb_size, item_border_size, item_padding, self.selected_items, self.input_data, self.enter_full_screen, self.select_all_callback, self.update_progress_bar, media_interface.load_interface_data, root, profile_item_loading_filename)
         self.item_count = len(self.ItemGrid.item_list["file_list"])
 
         self.toolbar = tk.Frame(self.grid_and_toolbar, bd=3)
@@ -293,11 +293,12 @@ def main():
     root.geometry("1000x600")
 
     parser = argparse.ArgumentParser(description='Select and symlink media from one directory to another')
-    parser.add_argument('-i', '--interface',          type=str,                   required=True, help='Path to source direcotry interface executable')
-    parser.add_argument('-s', '--source',             type=str, action='append',  required=True, help='Path to the source directory of media to get linked. This can be entered multiple times')
-    parser.add_argument('-d', '--destination',        type=str, action='append',  required=True, help='Path to the distention directory for the links to stored in. This can be entered multiple times')
-    parser.add_argument('-a', '--destination-append', type=str,                                  help='Path to be appended to the project directory selected in the destination directory. For example if media needs to be linked in a sub-folder')
-    parser.add_argument('-v', '--version',                      action="version",                help='print the version of this program and exit successfully',  version=version)
+    parser.add_argument('-i', '--interface',            type=str,                   required=True,  help='Path to source direcotry interface executable')
+    parser.add_argument('-s', '--source',               type=str, action='append',  required=True,  help='Path to the source directory of media to get linked. This can be entered multiple times')
+    parser.add_argument('-d', '--destination',          type=str, action='append',  required=True,  help='Path to the distention directory for the links to stored in. This can be entered multiple times')
+    parser.add_argument('-a', '--destination-append',   type=str,                                   help='Path to be appended to the project directory selected in the destination directory. For example if media needs to be linked in a sub-folder')
+    parser.add_argument('-v', '--version',                        action="version",                 help='print the version of this program and exit successfully',  version=version)
+    parser.add_argument('-p', '--profile-item-loading', type=str,                   required=False, help='Run a profiler on the code that loads the items, save the data under the provided filename and exit')
 
     args = parser.parse_args()
 
@@ -309,7 +310,7 @@ def main():
     }
 
     try:
-        app = MediaSelectorApp(root, input_data)
+        app = MediaSelectorApp(root, input_data, profile_item_loading_filename=args.profile_item_loading)
     except CmdLineError as error_message:
         print(f"ERROR: {error_message}", file=sys.stderr)
         sys.exit(1)

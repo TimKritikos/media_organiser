@@ -11,7 +11,7 @@ from datetime import timezone
 import constants
 
 class ItemGrid(tk.Frame):
-    def __init__(self, root, thumb_size, item_border_size, item_padding, selected_items, input_data, full_screen_callback, select_all_callback, update_progress_bar_callback, load_interface_data):
+    def __init__(self, root, thumb_size, item_border_size, item_padding, selected_items, input_data, full_screen_callback, select_all_callback, update_progress_bar_callback, load_interface_data, tk_root, profile_save_filename):
         super().__init__(root)
 
         self.thumb_size = thumb_size
@@ -26,6 +26,8 @@ class ItemGrid(tk.Frame):
         self.full_screen_callback = full_screen_callback
         self.select_all_callback = select_all_callback
         self.update_progress_bar_callback = update_progress_bar_callback
+        self.profile_save_filename = profile_save_filename
+        self.tk_root = tk_root
 
         self.item_list = load_interface_data(self.input_data, 0, 'list-thumbnails')
 
@@ -48,6 +50,11 @@ class ItemGrid(tk.Frame):
             i.bind("<Control-a>", self.select_all_callback)
             i.bind("<Control-A>", self.select_all_callback)
 
+        if self.profile_save_filename != None:
+            import cProfile
+            self.profiler = cProfile.Profile()
+            self.profiler.enable()
+
 
     def add_item(self,item):
             self.items.append(Item(self.item_grid, item, self.selected_items, self.input_data, 0, self.thumb_size, self.cget('bg'), "#5293fa", self.bind_grid_scroll, self.unbind_grid_scroll, self.full_screen_callback, self.shift_select, self.select_all_callback, bd=self.item_border_size))
@@ -57,6 +64,10 @@ class ItemGrid(tk.Frame):
             if len(self.item_list["file_list"]) == len(self.items):
                 self.items.sort(key=lambda x: x.create_epoch)
                 self.update_item_layout(force_regrid=True)
+                if self.profile_save_filename != None:
+                    self.profiler.disable()
+                    self.profiler.dump_stats(self.profile_save_filename)
+                    self.tk_root.destroy()
 
     def load_items_thread(self):
         for item in self.item_list["file_list"]:
