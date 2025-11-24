@@ -257,16 +257,30 @@ class Item(tk.Frame):
             img = Image.new("RGB", thumb_size, (60, 60, 60))
 
         create_epoch = -1
-        with ExifToolHelper() as et:
+
+        try:
+            pil_img = Image.open(exif_path)
+            exif_data = pil_img._getexif()
+            if exif_data:
+                # 36867 is DateTimeOriginal, 306 is DateTime
+                date_str = exif_data.get(36867) or exif_data.get(306)
+                if date_str:
+                    dt = datetime.strptime(date_str, '%Y:%m:%d %H:%M:%S')
+                    create_epoch = int(dt.replace(tzinfo=timezone.utc).timestamp())
+        except Exception:
+            pass
+
+        if create_epoch == -1:
             try:
-                metadata = et.get_metadata(exif_path)
-                for d in metadata:
-                    for key, value in d.items():
-                        match key:
-                            case "EXIF:CreateDate"|"QuickTime:CreateDate": #TODO add subseconds
-                                create_date_notz = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
-                                create_date = create_date_notz.replace(tzinfo=timezone.utc)
-                                create_epoch = int(create_date.timestamp())
+                with ExifToolHelper() as et:
+                    metadata = et.get_metadata(exif_path)
+                    for d in metadata:
+                        for key, value in d.items():
+                            match key:
+                                case "EXIF:CreateDate"|"QuickTime:CreateDate": #TODO add subseconds
+                                    create_date_notz = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                                    create_date = create_date_notz.replace(tzinfo=timezone.utc)
+                                    create_epoch = int(create_date.timestamp())
             except Exception:
                 pass
 
