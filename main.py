@@ -5,6 +5,7 @@ import argparse
 from tkinter import ttk
 import subprocess
 import os
+import multiprocessing
 
 import full_screen_view
 import item_grid
@@ -48,7 +49,7 @@ class CountCallbackSet:
 
 
 class MediaSelectorApp:
-    def __init__(self, root, unsanitised_input_data, thumb_size=(180, 180), item_border_size=6, item_padding=10, profile_item_loading_filename=None):
+    def __init__(self, root, unsanitised_input_data, processing_thread_count, thumb_size=(180, 180), item_border_size=6, item_padding=10, profile_item_loading_filename=None):
         self.input_data = {}
 
         if not os.path.isfile(unsanitised_input_data["interface"]):
@@ -84,7 +85,7 @@ class MediaSelectorApp:
 
         self.grid_and_toolbar = tk.Frame(self.list_grid_pane)
 
-        self.ItemGrid = item_grid.ItemGrid(self.grid_and_toolbar, thumb_size, item_border_size, item_padding, self.selected_items, self.input_data, self.enter_full_screen, self.select_all_callback, self.update_progress_bar, media_interface.load_interface_data, root, profile_item_loading_filename)
+        self.ItemGrid = item_grid.ItemGrid(self.grid_and_toolbar, thumb_size, item_border_size, item_padding, self.selected_items, self.input_data, self.enter_full_screen, self.select_all_callback, self.update_progress_bar, media_interface.load_interface_data, root, profile_item_loading_filename, processing_thread_count)
         self.item_count = len(self.ItemGrid.item_list["file_list"])
 
         self.toolbar = tk.Frame(self.grid_and_toolbar, bd=3)
@@ -299,8 +300,14 @@ def main():
     parser.add_argument('-a', '--destination-append',   type=str,                                   help='Path to be appended to the project directory selected in the destination directory. For example if media needs to be linked in a sub-folder')
     parser.add_argument('-v', '--version',                        action="version",                 help='print the version of this program and exit successfully',  version=version)
     parser.add_argument('-p', '--profile-item-loading', type=str,                   required=False, help='Run a profiler on the code that loads the items, save the data under the provided filename and exit')
+    parser.add_argument('-j', '--jobs',                 type=int,                   required=False, help='The number of jobs to run simultaneously. Currently this is used for reading and processing the input data when starting up. By default the number of availiable threads is used.')
 
     args = parser.parse_args()
+
+    if args.jobs == None:
+        jobs=multiprocessing.cpu_count()
+    else:
+        jobs=args.jobs
 
     input_data = {
         "interface": args.interface,
@@ -310,7 +317,7 @@ def main():
     }
 
     try:
-        app = MediaSelectorApp(root, input_data, profile_item_loading_filename=args.profile_item_loading)
+        app = MediaSelectorApp(root, input_data, jobs, profile_item_loading_filename=args.profile_item_loading)
     except CmdLineError as error_message:
         print(f"ERROR: {error_message}", file=sys.stderr)
         sys.exit(1)

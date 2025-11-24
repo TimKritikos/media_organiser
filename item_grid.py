@@ -7,11 +7,13 @@ import time
 from datetime import datetime
 from exiftool import ExifToolHelper
 from datetime import timezone
+import concurrent.futures
+import queue
 
 import constants
 
 class ItemGrid(tk.Frame):
-    def __init__(self, root, thumb_size, item_border_size, item_padding, selected_items, input_data, full_screen_callback, select_all_callback, update_progress_bar_callback, load_interface_data, tk_root, profile_save_filename):
+    def __init__(self, root, thumb_size, item_border_size, item_padding, selected_items, input_data, full_screen_callback, select_all_callback, update_progress_bar_callback, load_interface_data, tk_root, profile_save_filename, thread_count):
         super().__init__(root)
 
         self.thumb_size = thumb_size
@@ -40,38 +42,78 @@ class ItemGrid(tk.Frame):
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
 
-        threading.Thread(target=self.load_items_thread, daemon=True).start()
-
         self.item_grid.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", lambda x: self.canvas.after_idle(self.update_item_layout))
+
         for i in (self.canvas, self.item_grid):
             i.bind("<Enter>", self.bind_grid_scroll)
             i.bind("<Leave>", self.unbind_grid_scroll)
             i.bind("<Control-a>", self.select_all_callback)
             i.bind("<Control-A>", self.select_all_callback)
 
+        self.result_queue = queue.Queue()
+        self.processing_threads_pool = concurrent.futures.ThreadPoolExecutor(max_workers=thread_count)
+
         if self.profile_save_filename != None:
             import cProfile
             self.profiler = cProfile.Profile()
             self.profiler.enable()
 
+        for item_data in self.item_list["file_list"]:
+            self.processing_threads_pool.submit(Item.preload_media_data, self.result_queue, item_data, self.thumb_size)
 
-    def add_item(self,item):
-            self.items.append(Item(self.item_grid, item, self.selected_items, self.input_data, 0, self.thumb_size, self.cget('bg'), "#5293fa", self.bind_grid_scroll, self.unbind_grid_scroll, self.full_screen_callback, self.shift_select, self.select_all_callback, bd=self.item_border_size))
-            self.update_item_layout()
-            self.items[-1].update_idletasks()
-            self.update_progress_bar_callback(len(self.items))
-            if len(self.item_list["file_list"]) == len(self.items):
-                self.items.sort(key=lambda x: x.create_epoch)
-                self.update_item_layout(force_regrid=True)
-                if self.profile_save_filename != None:
-                    self.profiler.disable()
-                    self.profiler.dump_stats(self.profile_save_filename)
-                    self.tk_root.destroy()
+        self.after(0, self.check_queue)
 
-    def load_items_thread(self):
-        for item in self.item_list["file_list"]:
-            self.after(0, self.add_item,item)
+    def check_queue(self):
+        try:
+            while not self.result_queue.empty():
+                result = self.result_queue.get_nowait()
+                self.add_item(result)
+        except queue.Empty:
+            pass
+
+        if len(self.items) != len(self.item_list["file_list"]):
+            self.after(1, self.check_queue)
+        else:
+            self.processing_threads_pool.shutdown(wait=False)
+
+
+    def add_item(self, result):
+        item_data, pil_image, create_epoch = result
+
+        new_item = Item(
+            self.item_grid,
+            item_data,
+            self.selected_items,
+            self.input_data,
+            0,
+            self.thumb_size,
+            self.cget('bg'),
+            "#5293fa",
+            self.bind_grid_scroll,
+            self.unbind_grid_scroll,
+            self.full_screen_callback,
+            self.shift_select,
+            self.select_all_callback,
+            bd=self.item_border_size,
+            preloaded_image=pil_image,
+            preloaded_epoch=create_epoch
+        )
+
+        self.items.append(new_item)
+        self.update_item_layout()
+        new_item.update_idletasks()
+
+        self.update_progress_bar_callback(len(self.items))
+
+        if len(self.item_list["file_list"]) == len(self.items):
+            self.items.sort(key=lambda x: x.create_epoch)
+            self.update_item_layout(force_regrid=True)
+            if self.profile_save_filename != None:
+                self.profiler.disable()
+                self.profiler.dump_stats(self.profile_save_filename)
+                self.tk_root.destroy()
+
 
     def bind_grid_scroll(self, event):
         self.canvas.bind_all("<Button-4>", self.scroll_steps)
@@ -91,7 +133,6 @@ class ItemGrid(tk.Frame):
     def update_scrollregion(self, event=None):
         self.item_grid.update_idletasks()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-
 
     def update_item_layout(self, event=None, force_regrid=False):
         canvas_width = self.canvas.winfo_width()
@@ -138,7 +179,7 @@ class Item(tk.Frame):
     last_selected = None
     mouse_action = 1
 
-    def __init__(self, root, item_data, selected_items, input_data, input_data_source_index, thumb_size, bg_color, select_color, enter_callback, leave_callback, full_screen_callback, shift_select_callback, select_all_callback, **kwargs):
+    def __init__(self, root, item_data, selected_items, input_data, input_data_source_index, thumb_size, bg_color, select_color, enter_callback, leave_callback, full_screen_callback, shift_select_callback, select_all_callback, preloaded_image=None, preloaded_epoch=-1, **kwargs):
         super().__init__(root, **kwargs)
 
         self.selected_items = selected_items
@@ -146,47 +187,13 @@ class Item(tk.Frame):
         self.bg_color = bg_color
         self.select_color = select_color
         self.file_path = item_data["file_path"]
-        if "metadata_file" in item_data:
-            self.exif_path = item_data["metadata_file"]
-        else:
-            self.exif_path = self.file_path
         self.full_screen_callback = full_screen_callback
         self.shift_select_callback = shift_select_callback
         self.select_all_callback = select_all_callback
+        self.create_epoch = preloaded_epoch
 
-        if not self.file_path or not os.path.exists(self.file_path):
-            print("ERROR: file in json from source media interface executable couldn't be found")
-            return -1
-
-        #Create thumbnail image
-        if item_data["file_type"] in ["image-preview", "image"]:
-            try:
-                img = Image.open(self.file_path).convert("RGB")
-                img.thumbnail(thumb_size)
-                self.photo_obj = ImageTk.PhotoImage(img)
-            except Exception:
-                img = Image.new("RGB", thumb_size, (100, 100, 100))
-                self.photo_obj = ImageTk.PhotoImage(img)
-        elif item_data["file_type"] == "video":
-                player = mpv.MPV(vo='null',ao='null')
-                player.pause=True
-                player.play(self.file_path)
-                start_time=datetime.now()
-                while True:
-                    if (datetime.now()-start_time).total_seconds() > 15 :
-                        #Timeout
-                        img = Image.new("RGB", thumb_size, (100, 100, 100))
-                        print("Timed out loading video '"+self.file_path+"'")
-                        break;
-                    try:
-                        img=player.screenshot_raw()
-                        break;
-                    except Exception:
-                        time.sleep(.2)
-                player.command('quit')
-                del player
-                img.thumbnail(thumb_size)
-                self.photo_obj = ImageTk.PhotoImage(img)
+        if preloaded_image:
+            self.photo_obj = ImageTk.PhotoImage(preloaded_image)
         else:
             img = Image.new("RGB", thumb_size, (60, 60, 60))
             self.photo_obj = ImageTk.PhotoImage(img)
@@ -203,18 +210,67 @@ class Item(tk.Frame):
             i.bind("<Leave>", leave_callback)
             i.bind("<Key>", self.key_callback)
 
-        self.create_epoch=-1
-        with ExifToolHelper() as et:
-            metadata = et.get_metadata(self.exif_path)
-            for d in metadata:
-                for key, value in d.items():
-                    match key:
-                        case "EXIF:CreateDate"|"QuickTime:CreateDate": #TODO add subseconds
-                            create_date_notz = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
-                            create_date = create_date_notz.replace(tzinfo=timezone.utc)
-                            self.create_epoch = int(create_date.timestamp())
         if self.create_epoch == -1:
             print(f"Warning: No create date could be found for file {self.file_path}")
+
+    @staticmethod
+    def preload_media_data(queue_ref, item_data, thumb_size):
+
+        file_path = item_data["file_path"]
+
+        if "metadata_file" in item_data:
+            exif_path = item_data["metadata_file"]
+        else:
+            exif_path = file_path
+
+        if not file_path or not os.path.exists(file_path):
+            raise FileNotFoundError("File not found for item")
+
+        #Create thumbnail image
+        if item_data["file_type"] in ["image-preview", "image"]:
+            try:
+                img = Image.open(file_path).convert("RGB")
+                img.thumbnail(thumb_size)
+            except Exception:
+                img = Image.new("RGB", thumb_size, (100, 100, 100))
+
+        elif item_data["file_type"] == "video":
+            player = mpv.MPV(vo='null', ao='null')
+            player.pause = True
+            player.play(file_path)
+            start_time = datetime.now()
+            while True:
+                if (datetime.now() - start_time).total_seconds() > 15:
+                    #Timeout
+                    img = Image.new("RGB", thumb_size, (100, 100, 100))
+                    print(f"Timed out loading video '{file_path}'")
+                    break
+                try:
+                    img = player.screenshot_raw()
+                    break;
+                except Exception:
+                    time.sleep(0.2)
+            player.command('quit')
+            del player
+            img.thumbnail(thumb_size)
+        else:
+            img = Image.new("RGB", thumb_size, (60, 60, 60))
+
+        create_epoch = -1
+        with ExifToolHelper() as et:
+            try:
+                metadata = et.get_metadata(exif_path)
+                for d in metadata:
+                    for key, value in d.items():
+                        match key:
+                            case "EXIF:CreateDate"|"QuickTime:CreateDate": #TODO add subseconds
+                                create_date_notz = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                                create_date = create_date_notz.replace(tzinfo=timezone.utc)
+                                create_epoch = int(create_date.timestamp())
+            except Exception:
+                pass
+
+        queue_ref.put((item_data, img, create_epoch))
 
     def key_callback(self, event):
         if event.char == '\r' :
