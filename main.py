@@ -16,6 +16,7 @@ import media_interface
 
 #TODO: add multiple source and destinations support
 #TODO: Add metadata specialised metadata for Optical Image stabilisation and other professional camera metadata that could possibly be useful in selection of images
+#TODO: Check interface fail response
 
 class CmdLineError(Exception):
     pass
@@ -72,9 +73,6 @@ class MediaSelectorApp:
 
         self.input_data["destinations_append"]=unsanitised_input_data["destinations_append"]
 
-        if len(unsanitised_input_data["sources"]) != 1 or len(unsanitised_input_data["destinations"]) != 1:
-            raise CmdLineError("Multiple source directories or destination directories aren't implemented yet")
-
         self.selected_items = CountCallbackSet()  # set of selected file paths
 
         root.title("MEDIA organiser")
@@ -86,7 +84,7 @@ class MediaSelectorApp:
         self.grid_and_toolbar = tk.Frame(self.list_grid_pane)
 
         self.ItemGrid = item_grid.ItemGrid(self.grid_and_toolbar, thumb_size, item_border_size, item_padding, self.selected_items, self.input_data, self.enter_full_screen, self.select_all_callback, self.update_progress_bar, media_interface.load_interface_data, root, profile_item_loading_filename, processing_thread_count)
-        self.item_count = len(self.ItemGrid.item_list["file_list"])
+        self.item_count = len(self.ItemGrid.item_list)
 
         self.toolbar = tk.Frame(self.grid_and_toolbar, bd=3)
         self.toolbar.config(relief="groove")

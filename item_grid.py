@@ -9,6 +9,7 @@ from exiftool import ExifToolHelper
 from datetime import timezone
 import concurrent.futures
 import queue
+import random
 
 import constants
 
@@ -30,8 +31,6 @@ class ItemGrid(tk.Frame):
         self.update_progress_bar_callback = update_progress_bar_callback
         self.profile_save_filename = profile_save_filename
         self.tk_root = tk_root
-
-        self.item_list = load_interface_data(self.input_data, 0, 'list-thumbnails')
 
         self.canvas = tk.Canvas(self, highlightthickness=0)
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
@@ -59,7 +58,13 @@ class ItemGrid(tk.Frame):
             self.profiler = cProfile.Profile()
             self.profiler.enable()
 
-        for item_data in self.item_list["file_list"]:
+        self.item_list=[]
+        for index, data in enumerate(self.input_data["sources"]):
+            interface_data = load_interface_data(self.input_data, index, 'list-thumbnails')
+            for item in interface_data["file_list"]:
+                self.item_list.append(item)
+        random.shuffle(self.item_list)
+        for item_data in self.item_list:
             self.processing_threads_pool.submit(Item.preload_media_data, self.result_queue, item_data, self.thumb_size)
 
         self.after(0, self.check_queue)
@@ -72,7 +77,7 @@ class ItemGrid(tk.Frame):
         except queue.Empty:
             pass
 
-        if len(self.items) != len(self.item_list["file_list"]):
+        if len(self.items) != len(self.item_list):
             self.after(1, self.check_queue)
         else:
             self.processing_threads_pool.shutdown(wait=False)
@@ -106,7 +111,7 @@ class ItemGrid(tk.Frame):
 
         self.update_progress_bar_callback(len(self.items))
 
-        if len(self.item_list["file_list"]) == len(self.items):
+        if len(self.item_list) == len(self.items):
             self.items.sort(key=lambda x: x.create_epoch)
             self.update_item_layout(force_regrid=True)
             if self.profile_save_filename != None:
