@@ -14,7 +14,6 @@ import shell_script_window
 import spell_check
 import media_interface
 
-#TODO: add multiple source and destinations support
 #TODO: Add metadata specialised metadata for Optical Image stabilisation and other professional camera metadata that could possibly be useful in selection of images
 #TODO: Check interface fail response
 
@@ -253,7 +252,7 @@ class MediaSelectorApp:
             f.write(self.ShellScriptWindow.get_script())
 
     def add_to_script(self):
-        selected_project = self.ProjectList.get_selected_dir()
+        selected_tab, selected_project = self.ProjectList.get_selected_dir()
         if not selected_project:
             messagebox.showinfo("Selection", "No project selection")
             return
@@ -263,8 +262,8 @@ class MediaSelectorApp:
             return
 
         linked_already=[]
-        destination_dir=self.ShellScriptWindow.get_destination_dir(selected_project);
-        if not self.ProjectList.query_project_queued_in_script(selected_project) :
+        destination_dir=self.ShellScriptWindow.get_destination_dir(selected_tab,selected_project);
+        if not self.ProjectList.query_project_queued_in_script(selected_tab, selected_project) :
             for file in os.listdir(destination_dir):
                 link_destination=os.path.normpath(os.path.join(destination_dir,(os.readlink(os.path.join(destination_dir,file)))))
                 linked_already.append((link_destination,file))
@@ -276,7 +275,7 @@ class MediaSelectorApp:
                         if i[0] == file_to_link["file_path"]:
                             messagebox.showinfo("Error", f"ERROR: file \"{file_to_link["file_path"]}\" is already linked as \"{i[1]}\" in \"{destination_dir}\"")
                             return
-                    self.ShellScriptWindow.add_file(file_to_link["file_path"], selected_project)
+                    self.ShellScriptWindow.add_file(file_to_link["file_path"], selected_tab, selected_project)
         except FileNotFoundError as error_message:
             messagebox.showinfo("ERROR", error_message)
         except ValueError as error_message:
