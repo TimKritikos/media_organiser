@@ -64,10 +64,12 @@ class ItemGrid(tk.Frame):
             for item in interface_data["file_list"]:
                 self.item_list.append(item)
         random.shuffle(self.item_list)
-        for item_data in self.item_list:
-            self.processing_threads_pool.submit(Item.preload_media_data, self.result_queue, item_data, self.thumb_size)
 
         self.after(0, self.check_queue)
+
+    def start_loading(self):
+        for item_data in self.item_list:
+            self.processing_threads_pool.submit(Item.preload_media_data, self.result_queue, item_data, self.thumb_size)
 
     def check_queue(self):
         try:

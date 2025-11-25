@@ -320,6 +320,8 @@ def main():
         print(f"ERROR: {error_message}", file=sys.stderr)
         sys.exit(1)
 
+    app.ItemGrid.start_loading()
+
     root.mainloop()
 
 
