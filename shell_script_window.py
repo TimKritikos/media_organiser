@@ -1,5 +1,4 @@
 import tkinter as tk
-from tkinter import messagebox
 import re
 import os
 
@@ -40,9 +39,9 @@ class ShellScriptWindow(tk.Frame):
         destination_project_dir = self.get_destination_dir(project_name)
 
         link_contents=os.path.relpath( file_path, destination_project_dir )
-        if os.path.isfile(os.path.join(os.path.dirname(destination_project_dir), link_contents)):
-            messagebox.showinfo("Error", "Link contents when resolved don't exist. This should only happen if this code generated absolute paths in a different way than the interface, one using physical and the other logical resolution")
-            raise ValueError
+        print(os.path.join(os.path.dirname(destination_project_dir), link_contents))
+        if not os.path.isfile(os.path.join(os.path.dirname(destination_project_dir), link_contents)) and not self.query_project_queued_in_script(project_name):
+            raise ValueError("Link contents when resolved don't exist. This should only happen if this code generated absolute paths in a different way than the interface, one using physical and the other logical resolution")
         line = "ln -s " + self.treat_strings_for_posix_shell(link_contents) + " " + self.treat_strings_for_posix_shell(destination_project_dir) + "\n"
         if line not in self.script_written_lines:
             self.text_widget.config(state=tk.NORMAL)
@@ -59,7 +58,7 @@ class ShellScriptWindow(tk.Frame):
         if self.query_project_queued_in_script == None:
             raise TypeError # This should never happen
 
-        destination_project_dir = os.path.realpath(os.path.join(self.input_data["destinations"][0], project_name, self.input_data["destinations_append"], '.'))
+        destination_project_dir = os.path.join(os.path.realpath(os.path.join(self.input_data["destinations"][0], project_name, self.input_data["destinations_append"])),'.')
 
         if not self.query_project_queued_in_script(project_name) and not os.path.isdir(destination_project_dir):
             raise FileNotFoundError("Selected project directory with the set destination append path doesn't exist")
