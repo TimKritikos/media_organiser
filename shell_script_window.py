@@ -36,9 +36,6 @@ class ShellScriptWindow(tk.Frame):
         return "'"+string.replace('\'','\'"\'"\'')+"'"
 
     def add_file(self, file_path, project_name):
-        if self.query_project_queued_in_script == None:
-            raise TypeError # This should never happen
-
         destination_project_dir = self.get_destination_dir(project_name)
 
         link_contents=os.path.relpath( file_path, destination_project_dir )
