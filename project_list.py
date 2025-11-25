@@ -67,10 +67,11 @@ class  ProjectList(tk.Frame):
         for i in self.destinations:
             self.listbox_items.append([])
 
-        for index, dirs in enumerate(self.dirs_in_script):
-            for d in dirs:
-                self.listbox_items[index].append(d)
         try:
+            for index, dirs in enumerate(self.dirs_in_script):
+                for project in dirs:
+                    if self.searchbox_status == 'unfocused' or any(True for _ in re.finditer(self.searchbox.get(), project)):
+                        self.listbox_items[index].append(project)
             for dest_index, dest_dirs in enumerate(self.dirs):
                 for project in dest_dirs:
                     if self.searchbox_status == 'unfocused' or any(True for _ in re.finditer(self.searchbox.get(), project)):
