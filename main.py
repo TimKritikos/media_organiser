@@ -15,7 +15,6 @@ import spell_check
 import media_interface
 
 #TODO: Add metadata specialised metadata for Optical Image stabilisation and other professional camera metadata that could possibly be useful in selection of images
-#TODO: Check interface fail response
 
 class CmdLineError(Exception):
     pass
@@ -166,9 +165,12 @@ class MediaSelectorApp:
             self.toolbar.grid(row=1, column=0, sticky='we')
 
     def enter_full_screen(self, path):
-        self.ItemGrid.grid_forget()
-        self.FullScreenItem = full_screen_view.FullScreenItem(self.grid_and_toolbar, self.input_data, path, self.exit_full_screen)
-        self.FullScreenItem.grid(row=0, column=0, sticky='nswe')
+        try:
+            self.FullScreenItem = full_screen_view.FullScreenItem(self.grid_and_toolbar, self.input_data, path, self.exit_full_screen)
+            self.ItemGrid.grid_forget()
+            self.FullScreenItem.grid(row=0, column=0, sticky='nswe')
+        except subprocess.CalledProcessError:
+            pass
 
     def exit_full_screen(self):
         self.FullScreenItem.grid_forget()
