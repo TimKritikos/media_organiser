@@ -6,6 +6,7 @@ import mpv
 import os
 from PIL import Image, ImageTk
 from tkinter import ttk
+import tkintermapview
 
 import media_interface
 
@@ -86,15 +87,9 @@ class FullScreenItem(tk.Frame):
                                 True
                         case "Composite:ShutterSpeed":
                             if int(value) < 1:
-                                if (1/value) % 1 < 0.01:
-                                    self.metadata["Shutter speed"] = "1/"+str(int(1/value))+" s"
-                                else:
-                                    self.metadata["Shutter speed"] = "1/"+str(1/value)+" s"
+                                    self.metadata["Shutter speed"] = "1/"+"{:.2f}".format(1/value)+" s"
                             else:
-                                if value % 1 < 0.01:
-                                    self.metadata["Shutter speed"] = str(int(value))+" s"
-                                else:
-                                    self.metadata["Shutter speed"] = str(value)+" s"
+                                    self.metadata["Shutter speed"] = "{:.2f}".format(value)+" s"
                         case "EXIF:ISO":
                             self.metadata["ISO"] = str(value)
                         case "EXIF:FNumber":
@@ -122,7 +117,10 @@ class FullScreenItem(tk.Frame):
                         case "EXIF:LensModel":
                             self.metadata["Lens model"] = value
                         case "MakerNotes:ImageStabilization":
-                            self.metadata["Image stabilization"] = str(value) #TODO figure what the values mean
+                            if value == 1:
+                                self.metadata["Image stabilization"] = "enabled"
+                            else:
+                                self.metadata["Image stabilization"] = "disabled"
                         case "MakerNotes:ElectronicFrontCurtainShutter":
                             self.metadata["Electronic Front Curtain"] = str(value)
                         case "MakerNotes:FocusMode":
@@ -141,8 +139,6 @@ class FullScreenItem(tk.Frame):
                             self.metadata["S/W Image stabilization"] = str(value)
                         case "QuickTime:BitrateSetting":
                             self.metadata["Video bitrate"] = str(value)
-                        #case "QuickTime:BitDepth":
-                        #    self.metadata["Bit depth"] = int(value/3)
                         case "QuickTime:VideoFrameRate":
                             self.metadata["Framerate"] = str(value)
                         case "Composite:AvgBitrate":
@@ -163,19 +159,37 @@ class FullScreenItem(tk.Frame):
                                 case "hvc1":
                                     codec="H.265"
                             self.metadata["Video codec"] = codec
-
-        self.metadata_canvas = tk.Canvas(self.metadata_frame, highlightthickness=0, width=250, height=1000)
-        self.metadata_canvas.grid(row=0, column=0, sticky='nswe')
-        self.metadata_canvas.grid_rowconfigure(0, weight=1)
-        self.metadata_canvas.grid_columnconfigure(0, weight=1)
+                        case "MakerNotes:Shutter":
+                            if value == '0 0 0':
+                                self.metadata["Shutter type:"]="electronic"
+                            else:
+                                self.metadata["Shutter type:"]="mechanical"
+                        case "Composite:GPSPosition":
+                            self.metadata["GPS"]=value
 
         metadata_key_x_end = 150
         metadata_value_x_start = metadata_key_x_end+5
-        metadata_y_start = 20
+        metadata_y_border = 20
         metadata_y_step = 15
 
+        print()
+        self.metadata_canvas = tk.Canvas(self.metadata_frame, highlightthickness=0, width=250, height=len(self.metadata)*metadata_y_step+metadata_y_border*2)
+        self.metadata_canvas.grid(row=0, column=0, sticky='nwe')
+        self.metadata_canvas.grid_rowconfigure(0, weight=1)
+        self.metadata_canvas.grid_columnconfigure(0, weight=1)
+
+        if "GPS" in self.metadata:
+            long,lat = self.metadata["GPS"].split(' ')
+            self.map_widget = tkintermapview.TkinterMapView(self.metadata_frame, width=400, height=400, corner_radius=10)
+            self.map_widget.set_position(float(long),float(lat))
+            self.map_widget.set_marker(float(long),float(lat))
+            self.map_widget.set_zoom(15)
+            self.map_widget.grid(row=1, column=0, sticky='nswe')
+            self.map_widget.grid_rowconfigure(1, weight=1)
+            self.map_widget.grid_columnconfigure(1, weight=1)
+
         for i, (key, value) in enumerate(self.metadata.items()):
-            y = metadata_y_start + i * metadata_y_step
+            y = metadata_y_border + i * metadata_y_step
 
             key_id = self.metadata_canvas.create_text(metadata_key_x_end, y, text=key+":", anchor="e", fill="#333")
             val_id = self.metadata_canvas.create_text(metadata_value_x_start, y, text=value, anchor="w", fill="#000")

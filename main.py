@@ -14,7 +14,6 @@ import shell_script_window
 import spell_check
 import media_interface
 
-#TODO: Add metadata specialised metadata for Optical Image stabilisation and other professional camera metadata that could possibly be useful in selection of images
 
 class CmdLineError(Exception):
     pass
