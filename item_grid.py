@@ -10,8 +10,18 @@ from datetime import timezone
 import concurrent.futures
 import queue
 import random
+import cairosvg
+import io
 
 import constants
+
+def gen_corrupted_file_icon(thumb_size):
+    icon='<?xml version="1.0" encoding="utf-8"?><!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools --><svg width="800px" height="800px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#ff0000"/><path d="M14 11H8M10 15H8M16 7H8M20 12V6.8C20 5.11984 20 4.27976 19.673 3.63803C19.3854 3.07354 18.9265 2.6146 18.362 2.32698C17.7202 2 16.8802 2 15.2 2H8.8C7.11984 2 6.27976 2 5.63803 2.32698C5.07354 2.6146 4.6146 3.07354 4.32698 3.63803C4 4.27976 4 5.11984 4 6.8V17.2C4 18.8802 4 19.7202 4.32698 20.362C4.6146 20.9265 5.07354 21.3854 5.63803 21.673C6.27976 22 7.11984 22 8.8 22H12M16 16L21 21M21 16L16 21" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    png_bytes = cairosvg.svg2png(bytestring=icon,
+                                 output_width=thumb_size[0],
+                                 output_height=thumb_size[1],
+                                 scale=1)
+    return Image.open(io.BytesIO(png_bytes)).convert("RGBA")
 
 class ItemGrid(tk.Frame):
     def __init__(self, root, thumb_size, item_border_size, item_padding, selected_items, input_data, full_screen_callback, select_all_callback, update_progress_bar_callback, load_interface_data, tk_root, profile_save_filename, thread_count):
@@ -292,7 +302,7 @@ class Item(tk.Frame):
             i.bind("<Key>", self.key_callback)
 
         if self.create_epoch == -1:
-            print(f"Warning: No create date could be found for file {self.file_path}")
+            tk.messagebox.showinfo("Error",(f"Warning: No create date could be found for file {self.file_path}"))
 
     @staticmethod
     def preload_media_data(queue_ref, item_data, thumb_size):
@@ -313,7 +323,7 @@ class Item(tk.Frame):
                 img = Image.open(file_path).convert("RGB")
                 img.thumbnail(thumb_size)
             except Exception:
-                img = Image.new("RGB", thumb_size, (100, 100, 100))
+                img = gen_corrupted_file_icon(thumb_size)
 
         elif item_data["file_type"] == "video":
             player = mpv.MPV(vo='null', ao='null')
@@ -323,7 +333,7 @@ class Item(tk.Frame):
             while True:
                 if (datetime.now() - start_time).total_seconds() > 15:
                     #Timeout
-                    img = Image.new("RGB", thumb_size, (100, 100, 100))
+                    img = gen_corrupted_file_icon(thumb_size)
                     print(f"Timed out loading video '{file_path}'")
                     break
                 try:
@@ -335,7 +345,7 @@ class Item(tk.Frame):
             del player
             img.thumbnail(thumb_size)
         else:
-            img = Image.new("RGB", thumb_size, (60, 60, 60))
+            img = gen_corrupted_file_icon(thumb_size)
 
         create_epoch = -1
 

@@ -1,5 +1,6 @@
 import tkinter as tk
 from exiftool import ExifToolHelper
+import exiftool
 from datetime import datetime
 from datetime import timezone
 import mpv
@@ -10,6 +11,7 @@ import tkintermapview
 import rawpy
 
 import media_interface
+import item_grid
 
 def get_video_length(file):
     player = mpv.MPV(vo='null',ao='null')
@@ -57,119 +59,122 @@ class FullScreenItem(tk.Frame):
         self.metadata_frame = tk.Frame(self)
 
         with ExifToolHelper() as et:
-            metadata = et.get_metadata(self.exif_path)
-            self.metadata = {
-                    "Filename": "",
-                    "Create date": "",
-                    "Create time": ""
-                    }
-            for d in metadata:
-                if "Composite:ShutterSpeed" in d:
-                    #Add the exposure values in this order if they exist
-                    self.metadata["Shutter speed"]=""
-                    self.metadata["Aperature"]=""
-                    self.metadata["ISO"]=""
-                    self.metadata["Focal length (35mm)"]=""
-                    break
+            try:
+                metadata = et.get_metadata(self.exif_path)
+                self.metadata = {
+                        "Filename": "",
+                        "Create date": "",
+                        "Create time": ""
+                        }
+                for d in metadata:
+                    if "Composite:ShutterSpeed" in d:
+                        #Add the exposure values in this order if they exist
+                        self.metadata["Shutter speed"]=""
+                        self.metadata["Aperature"]=""
+                        self.metadata["ISO"]=""
+                        self.metadata["Focal length (35mm)"]=""
+                        break
 
-            for d in metadata:
-                for key, value in d.items():
-                    match key:
-                        case "File:FileName":
-                            self.metadata["Filename"] = value
-                        case "EXIF:Make":
-                            self.metadata["Camera make"] = value
-                        case "EXIF:Model"|"QuickTime:Model":
-                            self.metadata["Camera model"] = value
-                        case "EXIF:CreateDate"|"QuickTime:CreateDate":
-                            try:
-                                create_date_notz = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
-                                create_date = create_date_notz.replace(tzinfo=timezone.utc)
-                                self.metadata["Create date"] = create_date.strftime("%Y-%m-%d")
-                                self.metadata["Create time"] = create_date.strftime("%H:%M:%S")
-                            except AttributeError:
-                                True
-                        case "Composite:ShutterSpeed":
-                            if int(value) < 1:
-                                    self.metadata["Shutter speed"] = "1/"+"{:.2f}".format(1/value)+" s"
-                            else:
-                                    self.metadata["Shutter speed"] = "{:.2f}".format(value)+" s"
-                        case "EXIF:ISO":
-                            self.metadata["ISO"] = str(value)
-                        case "EXIF:FNumber":
-                            self.metadata["Aperature"]="f"+str(value)
-                        case "EXIF:Software"|"QuickTime:FirmwareVersion":
-                            self.metadata["Software version"] = value
-                        case "EXIF:SubSecTimeOriginal":
-                            self.metadata["Create time"] += "."+str(value)
-                        case "EXIF:ExposureCompensation"|"QuickTime:ExposureCompensation":
-                            self.metadata["Exposure compensation"] = str(value)
-                        case "EXIF:FocalLengthIn35mmFormat":
-                            self.metadata["Focal length (35mm)"] = str(value)+"mm"
-                        case "EXIF:Contrast":
-                            self.metadata["Contrast"] = str(value)
-                        case "EXIF:Saturation":
-                            self.metadata["Saturation"] = str(value)
-                        case "EXIF:Sharpness"|"QuickTime:Sharpness":
-                            self.metadata["Sharpness"] = str(value)
-                        case "EXIF:SerialNumber"|"QuickTime:CameraSerialNumber":
-                            self.metadata["Serial Number"] = value
-                        case "APP6:HDRSetting"|"QuickTime:HDRVideo":
-                            self.metadata["HDR Setting"] = value
-                        case "EXIF:DigitalZoomRatio"|"QuickTime:DigitalZoomAmount":
-                            self.metadata["Digital Zoom ratio"] = str(value)
-                        case "EXIF:LensModel":
-                            self.metadata["Lens model"] = value
-                        case "MakerNotes:ImageStabilization":
-                            if value == 1:
-                                self.metadata["Image stabilization"] = "enabled"
-                            else:
-                                self.metadata["Image stabilization"] = "disabled"
-                        case "MakerNotes:ElectronicFrontCurtainShutter":
-                            self.metadata["Electronic Front Curtain"] = str(value)
-                        case "MakerNotes:FocusMode":
-                            self.metadata["Focus mode"] = str(value) #TODO figure what the values mean
-                        case "MakerNotes:FocusLocation":
-                            True #TODO maybe draw it?
-                        case "MakerNotes:BatteryTemperature":
-                            self.metadata["Battery temprature"]="{:.1f}".format(value)+"°C"#TODO make sure it's celsius
-                        case "MakerNotes:BatteryLevel":
-                            self.metadata["Battery level"] = str(value)+"%"
-                        case "MakerNotes:ShutterCount":
-                            self.metadata["Shutter count"] = str(value)
-                        case "Composite:FocusDistance2":
-                            self.metadata["Focus distance"] = str(value)+"m"
-                        case "QuickTime:ElectronicStabilizationOn":
-                            self.metadata["S/W Image stabilization"] = str(value)
-                        case "QuickTime:BitrateSetting":
-                            self.metadata["Video bitrate"] = str(value)
-                        case "QuickTime:VideoFrameRate":
-                            self.metadata["Framerate"] = str(value)
-                        case "Composite:AvgBitrate":
-                            self.metadata["Average bitrate"]="{:.1f}".format(value/1000/1000)+"Mbps"
-                        case "Composite:ImageSize":
-                            self.metadata["Resolution"] = str(value).replace(' ','x')
-                        case "QuickTime:AudioSampleRate":
-                            self.metadata["Audio Sample rate"]="{:.1f}".format(value/1000)+"kHz"
-                        case "QuickTime:AudioBitsPerSample":
-                            self.metadata["Audio Bit depth"] = str(value)
-                        case "QuickTime:AudioChannels":
-                            self.metadata["Audio Channels"] = str(value)
-                        case "QuickTime:CompressorName":
-                            self.metadata["Video Compressor name"] = str(value)
-                        case "QuickTime:CompressorID":
-                            codec="unknown ("+value+")"
-                            match value:
-                                case "hvc1":
-                                    codec="H.265"
-                            self.metadata["Video codec"] = codec
-                        case "MakerNotes:Shutter":
-                            if value == '0 0 0':
-                                self.metadata["Shutter type:"]="electronic"
-                            else:
-                                self.metadata["Shutter type:"]="mechanical"
-                        case "Composite:GPSPosition":
-                            self.metadata["GPS"]=value
+                for d in metadata:
+                    for key, value in d.items():
+                        match key:
+                            case "File:FileName":
+                                self.metadata["Filename"] = value
+                            case "EXIF:Make":
+                                self.metadata["Camera make"] = value
+                            case "EXIF:Model"|"QuickTime:Model":
+                                self.metadata["Camera model"] = value
+                            case "EXIF:CreateDate"|"QuickTime:CreateDate":
+                                try:
+                                    create_date_notz = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                                    create_date = create_date_notz.replace(tzinfo=timezone.utc)
+                                    self.metadata["Create date"] = create_date.strftime("%Y-%m-%d")
+                                    self.metadata["Create time"] = create_date.strftime("%H:%M:%S")
+                                except AttributeError:
+                                    True
+                            case "Composite:ShutterSpeed":
+                                if int(value) < 1:
+                                        self.metadata["Shutter speed"] = "1/"+"{:.2f}".format(1/value)+" s"
+                                else:
+                                        self.metadata["Shutter speed"] = "{:.2f}".format(value)+" s"
+                            case "EXIF:ISO":
+                                self.metadata["ISO"] = str(value)
+                            case "EXIF:FNumber":
+                                self.metadata["Aperature"]="f"+str(value)
+                            case "EXIF:Software"|"QuickTime:FirmwareVersion":
+                                self.metadata["Software version"] = value
+                            case "EXIF:SubSecTimeOriginal":
+                                self.metadata["Create time"] += "."+str(value)
+                            case "EXIF:ExposureCompensation"|"QuickTime:ExposureCompensation":
+                                self.metadata["Exposure compensation"] = str(value)
+                            case "EXIF:FocalLengthIn35mmFormat":
+                                self.metadata["Focal length (35mm)"] = str(value)+"mm"
+                            case "EXIF:Contrast":
+                                self.metadata["Contrast"] = str(value)
+                            case "EXIF:Saturation":
+                                self.metadata["Saturation"] = str(value)
+                            case "EXIF:Sharpness"|"QuickTime:Sharpness":
+                                self.metadata["Sharpness"] = str(value)
+                            case "EXIF:SerialNumber"|"QuickTime:CameraSerialNumber":
+                                self.metadata["Serial Number"] = value
+                            case "APP6:HDRSetting"|"QuickTime:HDRVideo":
+                                self.metadata["HDR Setting"] = value
+                            case "EXIF:DigitalZoomRatio"|"QuickTime:DigitalZoomAmount":
+                                self.metadata["Digital Zoom ratio"] = str(value)
+                            case "EXIF:LensModel":
+                                self.metadata["Lens model"] = value
+                            case "MakerNotes:ImageStabilization":
+                                if value == 1:
+                                    self.metadata["Image stabilization"] = "enabled"
+                                else:
+                                    self.metadata["Image stabilization"] = "disabled"
+                            case "MakerNotes:ElectronicFrontCurtainShutter":
+                                self.metadata["Electronic Front Curtain"] = str(value)
+                            case "MakerNotes:FocusMode":
+                                self.metadata["Focus mode"] = str(value) #TODO figure what the values mean
+                            case "MakerNotes:FocusLocation":
+                                True #TODO maybe draw it?
+                            case "MakerNotes:BatteryTemperature":
+                                self.metadata["Battery temprature"]="{:.1f}".format(value)+"°C"#TODO make sure it's celsius
+                            case "MakerNotes:BatteryLevel":
+                                self.metadata["Battery level"] = str(value)+"%"
+                            case "MakerNotes:ShutterCount":
+                                self.metadata["Shutter count"] = str(value)
+                            case "Composite:FocusDistance2":
+                                self.metadata["Focus distance"] = str(value)+"m"
+                            case "QuickTime:ElectronicStabilizationOn":
+                                self.metadata["S/W Image stabilization"] = str(value)
+                            case "QuickTime:BitrateSetting":
+                                self.metadata["Video bitrate"] = str(value)
+                            case "QuickTime:VideoFrameRate":
+                                self.metadata["Framerate"] = str(value)
+                            case "Composite:AvgBitrate":
+                                self.metadata["Average bitrate"]="{:.1f}".format(value/1000/1000)+"Mbps"
+                            case "Composite:ImageSize":
+                                self.metadata["Resolution"] = str(value).replace(' ','x')
+                            case "QuickTime:AudioSampleRate":
+                                self.metadata["Audio Sample rate"]="{:.1f}".format(value/1000)+"kHz"
+                            case "QuickTime:AudioBitsPerSample":
+                                self.metadata["Audio Bit depth"] = str(value)
+                            case "QuickTime:AudioChannels":
+                                self.metadata["Audio Channels"] = str(value)
+                            case "QuickTime:CompressorName":
+                                self.metadata["Video Compressor name"] = str(value)
+                            case "QuickTime:CompressorID":
+                                codec="unknown ("+value+")"
+                                match value:
+                                    case "hvc1":
+                                        codec="H.265"
+                                self.metadata["Video codec"] = codec
+                            case "MakerNotes:Shutter":
+                                if value == '0 0 0':
+                                    self.metadata["Shutter type:"]="electronic"
+                                else:
+                                    self.metadata["Shutter type:"]="mechanical"
+                            case "Composite:GPSPosition":
+                                self.metadata["GPS"]=value
+            except exiftool.exceptions.ExifToolExecuteError:
+                self.metadata={ "Couldn't get metadata": "" }
 
         metadata_key_x_end = 150
         metadata_value_x_start = metadata_key_x_end+5
@@ -224,7 +229,10 @@ class FullScreenItem(tk.Frame):
                 self.pil_image_raw = None
                 self.rawpy_object = None
 
-            self.pil_image_jpeg = Image.open(self.best_file_path).convert("RGB")
+            try:
+                self.pil_image_jpeg = Image.open(self.best_file_path).convert("RGB")
+            except Image.UnidentifiedImageError:
+                self.pil_image_jpeg = item_grid.gen_corrupted_file_icon((1000,1000))
 
             if self.rawpy_object != None:
                 self.exposure_slider = tk.Scale(self.metadata_frame, from_=-3, to=3, resolution=0.1, orient='horizontal', label="Exposure", command=self.update_exposure)
