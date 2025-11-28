@@ -38,7 +38,6 @@ class ItemGrid(tk.Frame):
 
         # --- Paging Control Frame ---
         self.control_frame = tk.Frame(self)
-        self.control_frame.pack(side="top", fill="x")
 
         self.prev_button = tk.Button(self.control_frame, text="< Previous", command=lambda: self.switch_page(-1), state=tk.DISABLED)
         self.prev_button.pack(side="left", padx=5)
@@ -57,8 +56,10 @@ class ItemGrid(tk.Frame):
 
         self.canvas_window = self.canvas.create_window((0, 0), window=self.item_grid, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
+        self.canvas.grid   (row=1, column=0, sticky='nswe')
+        self.scrollbar.grid(row=0, column=1, sticky='nse', rowspan=2)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
 
         self.item_grid.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", lambda x: self.canvas.after_idle(self.update_item_layout))
@@ -195,6 +196,10 @@ class ItemGrid(tk.Frame):
         if self.last_items_per_row != items_per_row or force_regrid :
             new_pages = self.calculate_item_location(len(self.items)-1, items_per_row)[0];
             if new_pages != self.total_page_count or (self.current_page != self.total_page_count and ( len(self.items) != len(self.item_list) ) ):
+                if new_pages == 1:
+                    self.control_frame.grid_forget()
+                elif self.total_page_count == 1:
+                    self.control_frame.grid(row=0, column=0, sticky='nwe')
                 self.total_page_count = new_pages
                 if self.current_page > self.total_page_count or len(self.items) != len(self.item_list):
                     self.current_page = self.total_page_count
