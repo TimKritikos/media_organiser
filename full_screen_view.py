@@ -7,6 +7,7 @@ import os
 from PIL import Image, ImageTk
 from tkinter import ttk
 import tkintermapview
+import rawpy
 
 import media_interface
 
@@ -35,9 +36,12 @@ class FullScreenItem(tk.Frame):
 
         data = media_interface.load_interface_data(input_data, 0, 'get-related', arg=file_path)
 
+        self.image_raw_file = None
         for file in data["file_list"]:
             if file["item_type"] == file["file_type"]:
                 self.best_file = file
+            if file["file_type"] == "image-raw":
+                self.image_raw_file = file
 
         if self.best_file == None:
             raise ValueError
@@ -209,7 +213,30 @@ class FullScreenItem(tk.Frame):
         self.mpv = None
 
         if self.best_file["item_type"] == "image":
-            self.img = Image.open(self.best_file_path).convert("RGB")
+            try:
+                if self.image_raw_file != None:
+                    self.rawpy_object = rawpy.imread(self.image_raw_file["file_path"])
+                    rgb = self.rawpy_object.postprocess(use_camera_wb=True, no_auto_bright=False, highlight_mode = rawpy.HighlightMode.Reconstruct(5))
+                    self.pil_image_raw = Image.fromarray(rgb)
+                else:
+                    raise rawpy._rawpy.LibRawFileUnsupportedError
+            except rawpy._rawpy.LibRawFileUnsupportedError:
+                self.pil_image_raw = None
+                self.rawpy_object = None
+
+            self.pil_image_jpeg = Image.open(self.best_file_path).convert("RGB")
+
+            if self.rawpy_object != None:
+                self.exposure_slider = tk.Scale(self.metadata_frame, from_=-3, to=3, resolution=0.1, orient='horizontal', label="Exposure", command=self.update_exposure)
+                self.exposure_slider.grid(row=2, column=0, sticky='we')
+                self.raw_jpeg_switch = tk.Button(self.metadata_frame, text="Switch to JPEG", command=self.raw_jpeg_switch)
+                self.raw_jpeg_state = "raw"
+                self.raw_jpeg_switch.grid(row=3, column=0, sticky='we')
+                self.pil_image = self.pil_image_raw
+                self.last_exposure_slider_setting = 0
+            else:
+                self.pil_image = self.pil_image_jpeg
+
         elif self.best_file["item_type"] == "video":
             self.video_frame = tk.Frame(self.content_frame)
             self.video_frame.pack(fill=tk.BOTH, expand=True)
@@ -324,17 +351,39 @@ class FullScreenItem(tk.Frame):
                 self.mpv.command('frame-back-step')
                 self.video_play_button.config(text="play")
 
-    def update_size(self):
+    def raw_jpeg_switch(self):
+        if self.raw_jpeg_state == 'raw':
+            self.raw_jpeg_switch.configure(text="Switch to RAW")
+            self.pil_image = self.pil_image_jpeg
+            self.raw_jpeg_state = 'jpeg'
+        else:
+            self.raw_jpeg_switch.configure(text="Switch to JPEG")
+            self.pil_image = self.pil_image_raw
+            self.raw_jpeg_state = 'raw'
+        if self.last_exposure_slider_setting != self.exposure_slider.get():
+            self.update_exposure(self.exposure_slider.get())
+        self.update_size(force=True)
+
+    def update_exposure(self, exp_shift):
+        if self.raw_jpeg_state == 'raw':
+            exp_shift = float(exp_shift)
+            rgb = self.rawpy_object.postprocess(exp_shift=2**exp_shift, no_auto_bright=True, use_camera_wb=True, highlight_mode = rawpy.HighlightMode.Reconstruct(5))
+            self.pil_image_raw = Image.fromarray(rgb)
+            self.pil_image = self.pil_image_raw
+            self.update_size(force=True)
+            self.last_exposure_slider_setting = exp_shift
+
+    def update_size(self, force=False):
         if self.best_file["item_type"] == "image":
             frame_width = self.content_frame.winfo_width()
             frame_height = self.content_frame.winfo_height()
             image_size = (frame_width, frame_height)
-            if image_size != self.old_image_size:
+            if image_size != self.old_image_size or force:
                 self.old_image_size = image_size
                 if self.image:
                     self.image.destroy()
                 if self.best_file["item_type"] in [ "image"]:
-                    image_resized = self.img.copy()
+                    image_resized = self.pil_image.copy()
                     image_resized.thumbnail(image_size)
                 else:
                     image_resized = Image.new("RGB", image_size, (60, 60, 60))
