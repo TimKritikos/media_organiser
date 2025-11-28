@@ -181,7 +181,6 @@ class FullScreenItem(tk.Frame):
         metadata_y_border = 20
         metadata_y_step = 15
 
-        print()
         self.metadata_canvas = tk.Canvas(self.metadata_frame, highlightthickness=0, width=250, height=len(self.metadata)*metadata_y_step+metadata_y_border*2)
         self.metadata_canvas.grid(row=0, column=0, sticky='nwe')
         self.metadata_canvas.grid_rowconfigure(0, weight=1)
