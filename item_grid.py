@@ -32,6 +32,25 @@ class ItemGrid(tk.Frame):
         self.profile_save_filename = profile_save_filename
         self.tk_root = tk_root
 
+        self.rows_per_page = 100 # TODO caluclaute based on item icon size and maximum drawabale area
+        self.total_page_count = 1
+        self.current_page = 1
+
+        # --- Paging Control Frame ---
+        self.control_frame = tk.Frame(self)
+        self.control_frame.pack(side="top", fill="x")
+
+        self.prev_button = tk.Button(self.control_frame, text="< Previous", command=lambda: self.switch_page(-1), state=tk.DISABLED)
+        self.prev_button.pack(side="left", padx=5)
+
+        self.page_label = tk.Label(self.control_frame)
+        self.update_page_text()
+        self.page_label.pack(side="left", padx=10)
+
+        self.next_button = tk.Button(self.control_frame, text="Next >", command=lambda: self.switch_page(1), state=tk.DISABLED)
+        self.next_button.pack(side="left", padx=5)
+        # ----------------------------
+
         self.canvas = tk.Canvas(self, highlightthickness=0)
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.item_grid = tk.Frame(self.canvas)
@@ -66,6 +85,25 @@ class ItemGrid(tk.Frame):
         random.shuffle(self.item_list)
 
         self.after(0, self.check_queue)
+
+    def update_page_button_state(self):
+        if len(self.items) == len(self.item_list):
+            if self.current_page == 1 :
+                self.prev_button.config(state=tk.DISABLED)
+            else:
+                self.prev_button.config(state=tk.NORMAL)
+
+            if self.current_page == self.total_page_count:
+                self.next_button.config(state=tk.DISABLED)
+            else:
+                self.next_button.config(state=tk.NORMAL)
+
+    def switch_page(self,num):
+        self.current_page += num
+        self.update_page_button_state()
+        self.update_item_layout( force_regrid=True )
+        self.canvas.yview_moveto(0)
+        self.update_page_text()
 
     def start_loading(self):
         for item_data in self.item_list:
@@ -141,31 +179,69 @@ class ItemGrid(tk.Frame):
         self.item_grid.update_idletasks()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
+    def calculate_item_location(self, idx, items_per_row):
+        page = ((( idx // items_per_row )) // self.rows_per_page)+1
+        row = ( idx // items_per_row ) % self.rows_per_page
+        col = idx % items_per_row
+        return (page,row,col)
+
+    def update_page_text(self):
+        self.page_label.config(text=f"Page {self.current_page} of {self.total_page_count}")
+
     def update_item_layout(self, event=None, force_regrid=False):
         canvas_width = self.canvas.winfo_width()
 
         items_per_row = max(1, canvas_width // (self.thumb_size[0] + self.item_border_size*2 + self.item_padding*2))
 
         if self.last_items_per_row != items_per_row or force_regrid==True:
+            new_pages = self.calculate_item_location(self.last_item_count, items_per_row)[0];
+            if new_pages != self.total_page_count:
+                self.total_page_count = new_pages
+                if self.current_page > self.total_page_count:
+                    self.current_page = self.total_page_count
+                self.update_page_text()
+                self.update_page_button_state()
+
             for item in self.items:
                 item.grid_forget()
 
             for idx, item in enumerate(self.items):
-                row = idx // items_per_row
-                col = idx % items_per_row
-                item.grid(row=row, column=col, padx=self.item_padding, pady=self.item_padding, sticky="nsew")
+                page,row,col = self.calculate_item_location(idx,items_per_row)
+                if page == self.current_page:
+                    item.grid(row=row, column=col, padx=self.item_padding, pady=self.item_padding, sticky="nsew")
+
             if self.last_items_per_row<items_per_row:
                 self.update_scrollregion()
+
             self.last_items_per_row = items_per_row
             self.last_item_count = len(self.items)
+
         elif self.last_item_count != len(self.items):
             idx = len(self.items)-1
             item = self.items[-1]
-            row = idx // items_per_row
-            col = idx % items_per_row
+            max_pages_now, row, col = self.calculate_item_location(idx,items_per_row)
+
+            updated_pages = False
+            if max_pages_now > self.total_page_count:
+                for item in self.items:
+                    item.grid_forget()
+
+                self.total_page_count = max_pages_now
+                self.current_page = max_pages_now
+
+                self.update_page_text()
+                self.update_scrollregion()
+                self.canvas.yview_moveto(0)
+                updated_pages = True
+
             item.grid(row=row, column=col, padx=self.item_padding, pady=self.item_padding, sticky="nsew")
             self.last_item_count = idx
-            self.canvas.yview_moveto(1)
+
+            if updated_pages == False:
+                self.canvas.yview_moveto(1)
+
+            #It checks if all items have been loaded and if they have it initialises the buttons
+            self.update_page_button_state()
 
     def shift_select(self, start, end, action):
         select = 0
