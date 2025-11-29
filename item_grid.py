@@ -92,7 +92,7 @@ class ItemGrid(tk.Frame):
         for index, data in enumerate(self.input_data["sources"]):
             interface_data = load_interface_data(self.input_data, index, 'list-thumbnails')
             for item in interface_data["file_list"]:
-                self.item_list.append(item)
+                self.item_list.append((item,data[1]))
         random.shuffle(self.item_list)
 
         self.after(0, self.check_queue)
@@ -277,7 +277,8 @@ class Item(tk.Frame):
         self.dragged_over = set()
         self.bg_color = bg_color
         self.select_color = select_color
-        self.file_path = item_data["file_path"]
+        self.file_path = item_data[0]["file_path"]
+        self.source_properties = item_data[1]
         self.full_screen_callback = full_screen_callback
         self.shift_select_callback = shift_select_callback
         self.select_all_callback = select_all_callback
@@ -288,6 +289,7 @@ class Item(tk.Frame):
         else:
             img = Image.new("RGB", thumb_size, (60, 60, 60))
             self.photo_obj = ImageTk.PhotoImage(img)
+
 
         self.image = tk.Label(self, image=self.photo_obj, borderwidth=0)
         self.image.pack()
@@ -301,16 +303,21 @@ class Item(tk.Frame):
             i.bind("<Leave>", leave_callback)
             i.bind("<Key>", self.key_callback)
 
+        if self.source_properties == constants.source_properties.read_only:
+            for i in (self.image, self.caption, self):
+                i.config(bg='#404040')
+            self.caption.config(fg='lightgrey')
+
         if self.create_epoch == -1:
             tk.messagebox.showinfo("Error",(f"Warning: No create date could be found for file {self.file_path}"))
 
     @staticmethod
     def preload_media_data(queue_ref, item_data, thumb_size):
 
-        file_path = item_data["file_path"]
+        file_path = item_data[0]["file_path"]
 
-        if "metadata_file" in item_data:
-            exif_path = item_data["metadata_file"]
+        if "metadata_file" in item_data[0]:
+            exif_path = item_data[0]["metadata_file"]
         else:
             exif_path = file_path
 
@@ -318,14 +325,14 @@ class Item(tk.Frame):
             raise FileNotFoundError("File not found for item")
 
         #Create thumbnail image
-        if item_data["file_type"] in ["image-preview", "image"]:
+        if item_data[0]["file_type"] in ["image-preview", "image"]:
             try:
                 img = Image.open(file_path).convert("RGB")
                 img.thumbnail(thumb_size)
             except Exception:
                 img = gen_corrupted_file_icon(thumb_size)
 
-        elif item_data["file_type"] == "video":
+        elif item_data[0]["file_type"] == "video":
             player = mpv.MPV(vo='null', ao='null')
             player.pause = True
             player.play(file_path)
@@ -384,15 +391,17 @@ class Item(tk.Frame):
             self.select_all_callback()
 
     def deselect(self):
-        for i in (self.image, self.caption, self):
-            i.config(bg=self.bg_color)
-        if self.file_path in self.selected_items:
-            self.selected_items.remove(self.file_path)
+        if self.source_properties != constants.source_properties.read_only:
+            for i in (self.image, self.caption, self):
+                i.config(bg=self.bg_color)
+            if self.file_path in self.selected_items:
+                self.selected_items.remove(self.file_path)
 
     def select(self):
-        for i in (self.image, self.caption, self):
-            i.config(bg=self.select_color)
-        self.selected_items.add(self.file_path)
+        if self.source_properties != constants.source_properties.read_only:
+            for i in (self.image, self.caption, self):
+                i.config(bg=self.select_color)
+            self.selected_items.add(self.file_path)
 
     def on_click(self, event):
         self.dragged_over.clear()

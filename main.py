@@ -13,6 +13,7 @@ import project_list
 import shell_script_window
 import spell_check
 import media_interface
+import constants
 
 
 class CmdLineError(Exception):
@@ -60,7 +61,13 @@ class MediaSelectorApp:
         for source in unsanitised_input_data["sources"]:
             if not os.path.isdir(source):
                 raise CmdLineError("Following provided source directory doesn't exist: '"+source+"'")
-            self.input_data["sources"].append(os.path.normpath(source))
+            self.input_data["sources"].append((os.path.normpath(source), constants.source_properties.normal))
+        if "read_only_source" in unsanitised_input_data:
+            for source in unsanitised_input_data["read_only_source"]:
+                print(f"adding source {source}")
+                if not os.path.isdir(source):
+                    raise CmdLineError("Following provided source directory doesn't exist: '"+source+"'")
+                self.input_data["sources"].append((os.path.normpath(source), constants.source_properties.read_only))
 
         self.input_data["destinations"]=[]
         for destination in unsanitised_input_data["destinations"]:
@@ -294,6 +301,7 @@ def main():
     parser = argparse.ArgumentParser(description='Select and symlink media from one directory to another')
     parser.add_argument('-i', '--interface',            type=str,                   required=True,  help='Path to source direcotry interface executable')
     parser.add_argument('-s', '--source',               type=str, action='append',  required=True,  help='Path to the source directory of media to get linked. This can be entered multiple times')
+    parser.add_argument('-r', '--read-only-source',     type=str, action='append',                  help='Like the -s flag but the items will only be visiable, not selectable for linking. Usualy used for context for the items to be selected')
     parser.add_argument('-d', '--destination',          type=str, action='append',  required=True,  help='Path to the distention directory for the links to stored in. This can be entered multiple times')
     parser.add_argument('-a', '--destination-append',   type=str,                                   help='Path to be appended to the project directory selected in the destination directory. For example if media needs to be linked in a sub-folder')
     parser.add_argument('-v', '--version',                        action="version",                 help='print the version of this program and exit successfully',  version=version)
@@ -310,6 +318,7 @@ def main():
     input_data = {
         "interface": args.interface,
         "sources": args.source,
+        "read_only_source": args.read_only_source,
         "destinations": args.destination,
         "destinations_append": (args.destination_append if args.destination_append is not None else ""),
     }
