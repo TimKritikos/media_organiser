@@ -318,10 +318,11 @@ def main():
     input_data = {
         "interface": args.interface,
         "sources": args.source,
-        "read_only_source": args.read_only_source,
         "destinations": args.destination,
         "destinations_append": (args.destination_append if args.destination_append is not None else ""),
     }
+    if args.read_only_source != None:
+        input_data["read_only_source"]= args.read_only_source
 
     try:
         app = MediaSelectorApp(root, input_data, jobs, profile_item_loading_filename=args.profile_item_loading)
