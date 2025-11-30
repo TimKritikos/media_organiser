@@ -9,9 +9,11 @@ from PIL import Image, ImageTk
 from tkinter import ttk
 import tkintermapview
 import rawpy
+import gpxpy as gpxpy
 
 import media_interface
 import item_grid
+import gnss_track_helpers
 
 def get_video_length(file):
     player = mpv.MPV(vo='null',ao='null')
@@ -284,6 +286,19 @@ class FullScreenItem(tk.Frame):
 
             self.mpv.observe_property('time-pos', self.video_time_callback)
             self.mpv.observe_property('eof-reached', self.on_end_file)
+        elif self.best_file["item_type"] == "gnss-track":
+            if input_data["force_offline"] and input_data["map_database"] == None:
+                db_name = os.devnull
+            else:
+                db_name = input_data["map_database"]
+            self.main_map = tkintermapview.TkinterMapView(self.content_frame, use_database_only=input_data["force_offline"], database_path=db_name)
+            self.main_map.pack(fill=tk.BOTH, expand=True)
+
+            gnss_data = gnss_track_helpers.get_gpx_data(file_path)
+
+            self.main_map.fit_bounding_box((gnss_data["max_lat"], gnss_data["min_lon"]), (gnss_data["min_lat"], gnss_data["max_lon"]))
+            self.main_map.set_path([(point[0], point[1]) for point in gnss_data["points"]])
+
         else:
             self.pil_image = item_grid.gen_corrupted_file_icon((1000,1000))
 
@@ -386,6 +401,8 @@ class FullScreenItem(tk.Frame):
         if self.best_file["item_type"] == "image":
             self.update_image_size(force=force)
         elif self.best_file["item_type"] == "video":
+            pass
+        elif self.best_file["item_type"] == "gnss-track":
             pass
         else:
             self.update_image_size(force=force)

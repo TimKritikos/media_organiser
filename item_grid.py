@@ -14,6 +14,7 @@ import cairosvg
 import io
 
 import constants
+import gnss_track_helpers
 
 def gen_corrupted_file_icon(thumb_size):
     icon='<?xml version="1.0" encoding="utf-8"?><!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools --><svg width="800px" height="800px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#ff0000"/><path d="M14 11H8M10 15H8M16 7H8M20 12V6.8C20 5.11984 20 4.27976 19.673 3.63803C19.3854 3.07354 18.9265 2.6146 18.362 2.32698C17.7202 2 16.8802 2 15.2 2H8.8C7.11984 2 6.27976 2 5.63803 2.32698C5.07354 2.6146 4.6146 3.07354 4.32698 3.63803C4 4.27976 4 5.11984 4 6.8V17.2C4 18.8802 4 19.7202 4.32698 20.362C4.6146 20.9265 5.07354 21.3854 5.63803 21.673C6.27976 22 7.11984 22 8.8 22H12M16 16L21 21M21 16L16 21" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
@@ -118,7 +119,7 @@ class ItemGrid(tk.Frame):
 
     def start_loading(self):
         for item_data in self.item_list:
-            self.processing_threads_pool.submit(Item.preload_media_data, self.result_queue, item_data, self.thumb_size)
+            self.processing_threads_pool.submit(Item.preload_media_data, self.result_queue, item_data, self.thumb_size, self.input_data)
 
     def check_queue(self):
         try:
@@ -312,9 +313,11 @@ class Item(tk.Frame):
             tk.messagebox.showinfo("Error",(f"Warning: No create date could be found for file {self.file_path}"))
 
     @staticmethod
-    def preload_media_data(queue_ref, item_data, thumb_size):
+    def preload_media_data(queue_ref, item_data, thumb_size, input_data):
 
         file_path = item_data[0]["file_path"]
+
+        create_epoch = -1
 
         if "metadata_file" in item_data[0]:
             exif_path = item_data[0]["metadata_file"]
@@ -351,23 +354,27 @@ class Item(tk.Frame):
             player.command('quit')
             del player
             img.thumbnail(thumb_size)
+        elif item_data[0]["file_type"] == "gnss-track":
+            img, create_epoch = gnss_track_helpers.gnss_thumbnail_and_timestamp(file_path, force_offline=input_data["force_offline"], map_database=input_data["map_database"])
+            img.thumbnail(thumb_size)
         else:
             img = gen_corrupted_file_icon(thumb_size)
 
-        create_epoch = -1
+        #Try to get epoch with PIL
+        if create_epoch == -1:
+            try:
+                pil_img = Image.open(exif_path)
+                exif_data = pil_img._getexif()
+                if exif_data:
+                    # 36867 is DateTimeOriginal, 306 is DateTime
+                    date_str = exif_data.get(36867) or exif_data.get(306)
+                    if date_str:
+                        dt = datetime.strptime(date_str, '%Y:%m:%d %H:%M:%S')
+                        create_epoch = int(dt.replace(tzinfo=timezone.utc).timestamp())
+            except Exception:
+                pass
 
-        try:
-            pil_img = Image.open(exif_path)
-            exif_data = pil_img._getexif()
-            if exif_data:
-                # 36867 is DateTimeOriginal, 306 is DateTime
-                date_str = exif_data.get(36867) or exif_data.get(306)
-                if date_str:
-                    dt = datetime.strptime(date_str, '%Y:%m:%d %H:%M:%S')
-                    create_epoch = int(dt.replace(tzinfo=timezone.utc).timestamp())
-        except Exception:
-            pass
-
+        #Try to get epoch with exiftool
         if create_epoch == -1:
             try:
                 with ExifToolHelper() as et:
