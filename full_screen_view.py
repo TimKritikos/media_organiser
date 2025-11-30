@@ -284,6 +284,8 @@ class FullScreenItem(tk.Frame):
 
             self.mpv.observe_property('time-pos', self.video_time_callback)
             self.mpv.observe_property('eof-reached', self.on_end_file)
+        else:
+            self.pil_image = item_grid.gen_corrupted_file_icon((1000,1000))
 
     def on_end_file(self, name, value):
         get_next=False
@@ -382,19 +384,23 @@ class FullScreenItem(tk.Frame):
 
     def update_size(self, force=False):
         if self.best_file["item_type"] == "image":
-            frame_width = self.content_frame.winfo_width()
-            frame_height = self.content_frame.winfo_height()
-            image_size = (frame_width, frame_height)
-            if image_size != self.old_image_size or force:
-                self.old_image_size = image_size
-                if self.image:
-                    self.image.destroy()
-                if self.best_file["item_type"] in [ "image"]:
-                    image_resized = self.pil_image.copy()
-                    image_resized.thumbnail(image_size)
-                else:
-                    image_resized = Image.new("RGB", image_size, (60, 60, 60))
+            self.update_image_size(force=force)
+        elif self.best_file["item_type"] == "video":
+            pass
+        else:
+            self.update_image_size(force=force)
 
-                self.photo_obj = ImageTk.PhotoImage(image_resized)
-                self.image = tk.Label(self.content_frame, image=self.photo_obj, borderwidth=0)
-                self.image.grid(row=0, column=0, sticky='nw')
+    def update_image_size(self, force):
+        frame_width = self.content_frame.winfo_width()
+        frame_height = self.content_frame.winfo_height()
+        image_size = (frame_width, frame_height)
+        if image_size != self.old_image_size or force:
+            self.old_image_size = image_size
+            if self.image:
+                self.image.destroy()
+            image_resized = self.pil_image.copy()
+            image_resized.thumbnail(image_size)
+
+            self.photo_obj = ImageTk.PhotoImage(image_resized)
+            self.image = tk.Label(self.content_frame, image=self.photo_obj, borderwidth=0)
+            self.image.grid(row=0, column=0, sticky='nw')
