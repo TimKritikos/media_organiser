@@ -272,16 +272,18 @@ class MediaSelectorApp:
         linked_already=[]
         destination_dir=self.ShellScriptWindow.get_destination_dir(selected_tab,selected_project);
         if not self.ProjectList.query_project_queued_in_script(selected_tab, selected_project) :
-            for file in os.listdir(destination_dir):
-                link_destination=os.path.normpath(os.path.join(destination_dir,(os.readlink(os.path.join(destination_dir,file)))))
-                linked_already.append((link_destination,file))
-
+            for dirpath, dirnames, filenames in os.walk(destination_dir, followlinks=False):
+                for filename in filenames:
+                    full_path = os.path.join(dirpath, filename)
+                    if os.path.islink(full_path):
+                        link_destination = os.path.realpath(full_path)
+                        linked_already.append((link_destination,filename,dirpath))
         try:
             for file_id in self.selected_items:
                 for file_to_link in media_interface.load_interface_data(self.input_data, 0, 'get-related', arg=file_id)["file_list"]:
                     for i in linked_already:
                         if i[0] == file_to_link["file_path"]:
-                            messagebox.showinfo("Error", f"ERROR: file \"{file_to_link["file_path"]}\" is already linked as \"{i[1]}\" in \"{destination_dir}\"")
+                            messagebox.showinfo("Error", f"ERROR: file \"{file_to_link["file_path"]}\" is already linked as \"{i[1]}\" in \"{i[2]}\"")
                             return
                     self.ShellScriptWindow.add_file(file_to_link["file_path"], selected_tab, selected_project)
         except FileNotFoundError as error_message:
