@@ -57,6 +57,12 @@ class MediaSelectorApp:
             raise CmdLineError("Following provided interface file isn't executable: '"+unsanitised_input_data["interface"]+"'")
         self.input_data["interface"]=os.path.normpath(unsanitised_input_data["interface"])
 
+        if unsanitised_input_data["map_database"] != None:
+            self.input_data["map_database"] = os.path.normpath(unsanitised_input_data["map_database"])
+        else:
+            self.input_data["map_database"] = None
+        self.input_data["force_offline"] = unsanitised_input_data["force_offline"]
+
         self.input_data["sources"]=[]
         for source in unsanitised_input_data["sources"]:
             if not os.path.isdir(source):
@@ -301,14 +307,16 @@ def main():
     root.geometry("1000x600")
 
     parser = argparse.ArgumentParser(description='Select and symlink media from one directory to another')
-    parser.add_argument('-i', '--interface',            type=str,                   required=True,  help='Path to source direcotry interface executable')
-    parser.add_argument('-s', '--source',               type=str, action='append',  required=True,  help='Path to the source directory of media to get linked. This can be entered multiple times')
-    parser.add_argument('-r', '--read-only-source',     type=str, action='append',                  help='Like the -s flag but the items will only be visiable, not selectable for linking. Usualy used for context for the items to be selected')
-    parser.add_argument('-d', '--destination',          type=str, action='append',  required=True,  help='Path to the distention directory for the links to stored in. This can be entered multiple times')
-    parser.add_argument('-a', '--destination-append',   type=str,                                   help='Path to be appended to the project directory selected in the destination directory. For example if media needs to be linked in a sub-folder')
-    parser.add_argument('-v', '--version',                        action="version",                 help='print the version of this program and exit successfully',  version=version)
-    parser.add_argument('-p', '--profile-item-loading', type=str,                   required=False, help='Run a profiler on the code that loads the items, save the data under the provided filename and exit')
-    parser.add_argument('-j', '--jobs',                 type=int,                   required=False, help='The number of jobs to run simultaneously. Currently this is used for reading and processing the input data when starting up. By default the number of availiable threads is used.')
+    parser.add_argument('-i', '--interface',            type=str,                                         required=True,  help='Path to source direcotry interface executable')
+    parser.add_argument('-s', '--source',               type=str,  action='append',                       required=True,  help='Path to the source directory of media to get linked. This can be entered multiple times')
+    parser.add_argument('-r', '--read-only-source',     type=str,  action='append',                                       help='Like the -s flag but the items will only be visiable, not selectable for linking. Usualy used for context for the items to be selected')
+    parser.add_argument('-d', '--destination',          type=str,  action='append',                       required=True,  help='Path to the distention directory for the links to stored in. This can be entered multiple times')
+    parser.add_argument('-a', '--destination-append',   type=str,                                                         help='Path to be appended to the project directory selected in the destination directory. For example if media needs to be linked in a sub-folder')
+    parser.add_argument('-v', '--version',                         action="version",                                      help='print the version of this program and exit successfully',  version=version)
+    parser.add_argument('-p', '--profile-item-loading', type=str,                                         required=False, help='Run a profiler on the code that loads the items, save the data under the provided filename and exit')
+    parser.add_argument('-j', '--jobs',                 type=int,                                         required=False, help='The number of jobs to run simultaneously. Currently this is used for reading and processing the input data when starting up. By default the number of availiable threads is used.')
+    parser.add_argument('-m', '--map-database',         type=str,                                         required=False, help='Path to a database of tile images to look through before loading from the network')
+    parser.add_argument('-O', '--force-offline',        type=bool, action=argparse.BooleanOptionalAction, required=False, help='Disable fetching resources from the network')
 
     args = parser.parse_args()
 
@@ -322,6 +330,8 @@ def main():
         "sources": args.source,
         "destinations": args.destination,
         "destinations_append": (args.destination_append if args.destination_append is not None else ""),
+        "force_offline": args.force_offline,
+        "map_database": args.map_database
     }
     if args.read_only_source != None:
         input_data["read_only_source"]= args.read_only_source

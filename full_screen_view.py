@@ -188,7 +188,7 @@ class FullScreenItem(tk.Frame):
 
         if "GPS" in self.metadata:
             long,lat = self.metadata["GPS"].split(' ')
-            self.map_widget = tkintermapview.TkinterMapView(self.metadata_frame, width=400, height=400, corner_radius=10)
+            self.map_widget = tkintermapview.TkinterMapView(self.metadata_frame, width=400, height=400, corner_radius=10, use_database_only=input_data["force_offline"], database_path=input_data["map_database"])
             self.map_widget.set_position(float(long),float(lat))
             self.map_widget.set_marker(float(long),float(lat))
             self.map_widget.set_zoom(15)
