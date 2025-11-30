@@ -333,6 +333,10 @@ def main():
         "force_offline": args.force_offline,
         "map_database": args.map_database
     }
+
+    if input_data["force_offline"] == None:
+        input_data["force_offline"]=False
+
     if args.read_only_source != None:
         input_data["read_only_source"]= args.read_only_source
 
