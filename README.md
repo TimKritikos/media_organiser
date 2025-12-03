@@ -1,5 +1,16 @@
 ## media organiser
 
-A tool in my photo/video/etc management system to select media and symlink it to the appropriate folders.
-Currently the project assumes a certain folder structure and a per camera/device executable the can provide some json data about what files are related to what items.
-You may need to be changed it to suit your needs
+A tool to quickly symlink media files to organise them into folders while keeping the original files intact
+
+<img width="186" style=" margin: 10px 0px 10px 10px;" alt="Program screenshot" src="readme_files/screenshot.png">
+
+Features:
+* Photo / Video / GPS track file support
+* Seamless multi part video file playback
+* Multiple sources on the same timeline and multiple destinations directories
+* Read only sources that are not selectable but there to provide context
+* Quick selection tools
+* Multi threaded file loading
+* Checks for duplicate symlinks
+
+This tools uses media-interface to easily adapt to the folder structure of different devices

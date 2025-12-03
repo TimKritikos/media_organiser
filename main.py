@@ -15,6 +15,7 @@ import spell_check
 import media_interface
 import constants
 
+#TODO: Add preference for gpx files in gnss track code
 
 class CmdLineError(Exception):
     pass
