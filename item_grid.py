@@ -346,7 +346,7 @@ class Item(tk.Frame):
                 if (datetime.now() - start_time).total_seconds() > 15:
                     #Timeout
                     img = gen_corrupted_file_icon(thumb_size)
-                    print(f"Timed out loading video '{file_path}'")
+                    messagebox.showinfo("Error", f"ERROR: Timed out loading video '{file_path}'. It might be corrupt")
                     break
                 try:
                     img = player.screenshot_raw()

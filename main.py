@@ -71,7 +71,6 @@ class MediaSelectorApp:
             self.input_data["sources"].append((os.path.normpath(source), constants.source_properties.normal))
         if "read_only_source" in unsanitised_input_data:
             for source in unsanitised_input_data["read_only_source"]:
-                print(f"adding source {source}")
                 if not os.path.isdir(source):
                     raise CmdLineError("Following provided source directory doesn't exist: '"+source+"'")
                 self.input_data["sources"].append((os.path.normpath(source), constants.source_properties.read_only))
