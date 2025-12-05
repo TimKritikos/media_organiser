@@ -331,7 +331,9 @@ class Item(tk.Frame):
         if item_data[0]["file_type"] in ["image-preview", "image"]:
             try:
                 img = Image.open(file_path).convert("RGB")
-                img.thumbnail(thumb_size)
+                orig_width, orig_height = img.size
+                target_height = int(orig_height*(thumb_size[0]/orig_width))
+                img = img.resize((thumb_size[0],target_height))
             except Exception:
                 img = gen_corrupted_file_icon(thumb_size)
 
@@ -353,10 +355,14 @@ class Item(tk.Frame):
                     time.sleep(0.2)
             player.command('quit')
             del player
-            img.thumbnail(thumb_size)
+            orig_width, orig_height = img.size
+            target_height = int(orig_height*(thumb_size[0]/orig_width))
+            img = img.resize((thumb_size[0],target_height))
         elif item_data[0]["file_type"] == "gnss-track":
             img, create_epoch = gnss_track_helpers.gnss_thumbnail_and_timestamp(file_path, force_offline=input_data["force_offline"], map_database=input_data["map_database"])
-            img.thumbnail(thumb_size)
+            orig_width, orig_height = img.size
+            target_height = int(orig_height*(thumb_size[0]/orig_width))
+            img = img.resize((thumb_size[0],target_height))
         else:
             img = gen_corrupted_file_icon(thumb_size)
 
