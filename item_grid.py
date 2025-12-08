@@ -206,12 +206,13 @@ class ItemGrid(tk.Frame):
 
         if self.last_items_per_row != items_per_row or force_regrid :
             new_pages = self.calculate_item_location(len(self.items)-1, items_per_row)[0];
-            if new_pages != self.total_page_count or (self.current_page != self.total_page_count and ( len(self.items) != len(self.item_list) ) ):
+            if  new_pages != 0 and ( new_pages != self.total_page_count or (self.current_page != self.total_page_count and ( len(self.items) != len(self.item_list) ) ) ):
                 if new_pages == 1:
                     self.control_frame.grid_forget()
                 elif self.total_page_count == 1:
                     self.control_frame.grid(row=0, column=0, sticky='nwe')
                 self.total_page_count = new_pages
+                # Handles case where after we load all data, the page count decreases and the second part when we still load data
                 if self.current_page > self.total_page_count or len(self.items) != len(self.item_list):
                     self.current_page = self.total_page_count
                 self.update_page_text()
