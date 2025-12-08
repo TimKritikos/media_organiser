@@ -22,10 +22,8 @@ def load_interface_data(input_data , source_number, query, arg=None):
         messagebox.showinfo("Error", "Error with media interface: "+error)
         raise error
 
-
-    #TODO: Enable before release
-    #if data["version"] != "v0.1.0":
-    #    messagebox.showinfo("Error", "ERROR invalid api version on source media interface")
-    #    return None
+    if data["version"].split('.')[0] != "1":
+        messagebox.showinfo("Error", "ERROR invalid api version on source media interface")
+        raise error
 
     return data
