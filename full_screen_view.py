@@ -366,6 +366,8 @@ class FullScreenItem(tk.Frame):
     def key_callback(self, event):
         match event.char:
             case '\r':
+                if self.mpv != None:
+                    self.mpv.command('quit')
                 self.exit_callback()
             case ' ':
                 self.video_play_pause()
