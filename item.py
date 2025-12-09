@@ -38,10 +38,27 @@ class Item(tk.Frame):
 
         self.image = tk.Label(self, image=self.photo_obj, borderwidth=0)
         self.image.pack()
+        self.icons = tk.Frame(self)
+        self.icons.pack(fill=tk.X)
         self.caption = tk.Label(self, text=os.path.basename(self.file_path), wraplength=thumb_size[0], borderwidth=0)
         self.caption.pack()
 
-        for i in (self.image, self.caption, self):
+        icon_size=(thumb_size[0]/8, thumb_size[1]/8)
+
+        if item_data[0]["item_type"] == "video":
+            icon=icons.gen_video_icon(icon_size)
+        elif item_data[0]["item_type"] == "image":
+            icon=icons.gen_image_icon(icon_size)
+        elif item_data[0]["item_type"] == "gnss-track":
+            icon=icons.gen_gnss_icon(icon_size)
+        else:
+            icon=icons.gen_unknown_icon(icon_size)
+        self.icon_photo_obj = ImageTk.PhotoImage(icon)
+        self.icon_label = tk.Label(self.icons,image=self.icon_photo_obj)
+
+        self.icon_label.pack(side=tk.LEFT)
+
+        for i in (self.image,self.icons, self.caption, self.icon_label, self):
             i.bind("<Button-1>", self.on_click)
             i.bind("<B1-Motion>", self.on_drag)
             i.bind("<Enter>", enter_callback)
@@ -149,14 +166,14 @@ class Item(tk.Frame):
 
     def deselect(self):
         if self.source_properties != constants.source_properties.read_only:
-            for i in (self.image, self.caption, self):
+            for i in (self.image, self.caption, self.icons, self.icon_label, self):
                 i.config(bg=self.bg_color)
             if self.file_path in self.selected_items:
                 self.selected_items.remove(self.file_path)
 
     def select(self):
         if self.source_properties != constants.source_properties.read_only:
-            for i in (self.image, self.caption, self):
+            for i in (self.image, self.caption, self.icons, self.icon_label, self):
                 i.config(bg=self.select_color)
             self.selected_items.add(self.file_path)
 
