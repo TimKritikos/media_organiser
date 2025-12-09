@@ -14,6 +14,7 @@ import gpxpy as gpxpy
 import media_interface
 import item_grid
 import gnss_track_helpers
+import icons
 
 def get_video_length(file):
     player = mpv.MPV(vo='null',ao='null')
@@ -233,7 +234,7 @@ class FullScreenItem(tk.Frame):
             try:
                 self.pil_image_jpeg = Image.open(self.best_file_path).convert("RGB")
             except Image.UnidentifiedImageError:
-                self.pil_image_jpeg = item_grid.gen_corrupted_file_icon((1000,1000))
+                self.pil_image_jpeg = icons.gen_corrupted_file_icon((1000,1000))
 
             if self.rawpy_object != None:
                 self.exposure_slider = tk.Scale(self.metadata_frame, from_=-3, to=3, resolution=0.1, orient='horizontal', label="Exposure", command=self.update_exposure)
@@ -300,7 +301,7 @@ class FullScreenItem(tk.Frame):
             self.main_map.set_path([(point[0], point[1]) for point in gnss_data["points"]])
 
         else:
-            self.pil_image = item_grid.gen_corrupted_file_icon((1000,1000))
+            self.pil_image = icons.gen_corrupted_file_icon((1000,1000))
 
     def on_end_file(self, name, value):
         get_next=False
