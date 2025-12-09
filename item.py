@@ -9,6 +9,8 @@ from datetime import timezone
 import os
 import time
 
+import icons
+
 class Item(tk.Frame):
     last_selected = None
     mouse_action = 1
@@ -77,7 +79,7 @@ class Item(tk.Frame):
                 target_height = int(orig_height*(thumb_size[0]/orig_width))
                 img = img.resize((thumb_size[0],target_height))
             except Exception:
-                img = gen_corrupted_file_icon(thumb_size)
+                img = icons.gen_corrupted_file_icon(thumb_size)
 
         elif item_data[0]["file_type"] == "video":
             player = mpv.MPV(vo='null', ao='null')
@@ -87,7 +89,7 @@ class Item(tk.Frame):
             while True:
                 if (datetime.now() - start_time).total_seconds() > 15:
                     #Timeout
-                    img = gen_corrupted_file_icon(thumb_size)
+                    img = icons.gen_corrupted_file_icon(thumb_size)
                     messagebox.showinfo("Error", f"ERROR: Timed out loading video '{file_path}'. It might be corrupt")
                     break
                 try:
@@ -106,7 +108,7 @@ class Item(tk.Frame):
             target_height = int(orig_height*(thumb_size[0]/orig_width))
             img = img.resize((thumb_size[0],target_height))
         else:
-            img = gen_corrupted_file_icon(thumb_size)
+            img = icons.gen_corrupted_file_icon(thumb_size)
 
         #Try to get epoch with PIL
         if create_epoch == -1:
