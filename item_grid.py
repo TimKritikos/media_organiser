@@ -100,8 +100,7 @@ class ItemGrid(tk.Frame):
 
     def start_loading(self):
         for item_data in self.item_list:
-            item.Item.preload_media_data( self.result_queue, item_data, self.thumb_size, self.input_data)
-            #self.processing_threads_pool.submit(item.Item.preload_media_data, self.result_queue, item_data, self.thumb_size, self.input_data)
+            self.processing_threads_pool.submit(item.Item.preload_media_data, self.result_queue, item_data, self.thumb_size, self.input_data)
 
     def check_queue(self):
         try:
