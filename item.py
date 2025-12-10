@@ -30,6 +30,7 @@ class Item(tk.Frame):
         self.create_epoch = preloaded_epoch
         self.icon_check_label = None
 
+
         if preloaded_image:
             self.photo_obj = ImageTk.PhotoImage(preloaded_image)
         else:
@@ -67,7 +68,10 @@ class Item(tk.Frame):
             i.bind("<Key>", self.key_callback)
 
         if self.source_properties == constants.source_properties.read_only:
-            for i in (self.image, self.caption, self):
+            to_color_list = [self.image, self.caption, self.icons, self.icon_label, self]
+            if self.icon_check_label != None:
+                to_color_list.append(self.icon_check_label)
+            for i in to_color_list:
                 i.config(bg='#404040')
             self.caption.config(fg='lightgrey')
 
