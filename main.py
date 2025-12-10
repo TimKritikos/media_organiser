@@ -307,7 +307,7 @@ class MediaSelectorApp:
 
 
 def main():
-    version = "v0.0-dev"
+    version = "v0.0"
 
     root = tk.Tk()
     root.geometry("1000x600")
