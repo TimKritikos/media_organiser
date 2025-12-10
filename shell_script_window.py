@@ -8,7 +8,7 @@ class ShellScriptWindow(tk.Frame):
         super().__init__(root)
         self.text_widget = tk.Text(self, bg='black', fg='white', height=8)
         self.text_widget.grid(row=0, column=0, sticky='nswe')
-        self.script_written_lines = set()
+        self.script_written_lines = []
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.text_widget.yview)
         self.text_widget['yscrollcommand'] = self.scrollbar.set
         self.scrollbar.grid(row=0, column=1, sticky='ns')
@@ -42,12 +42,12 @@ class ShellScriptWindow(tk.Frame):
         if not os.path.isfile(os.path.join(os.path.dirname(destination_project_dir), link_contents)) and not self.query_project_queued_in_script(dest_id, project_name):
             raise ValueError("Link contents when resolved don't exist. This should only happen if this code generated absolute paths in a different way than the interface, one using physical and the other logical resolution")
         line = "ln -s " + self.treat_strings_for_posix_shell(link_contents) + " " + self.treat_strings_for_posix_shell(destination_project_dir) + "\n"
-        if line not in self.script_written_lines:
+        if (file_path, destination_project_dir) not in self.script_written_lines:
             self.text_widget.config(state=tk.NORMAL)
             self.text_widget.insert(tk.END, line)
             self.text_widget.config(state=tk.DISABLED)
             self.syntax_highlight_lines((4+len(self.script_written_lines), ))
-            self.script_written_lines.add(line)
+            self.script_written_lines.append((file_path, destination_project_dir))
             self.text_widget.see("end")
 
     def get_script(self):
@@ -116,10 +116,11 @@ class ShellScriptWindow(tk.Frame):
                         self.text_widget.tag_add("quote_chars", end, end_)
 
     def new_project_callback(self, dest_id, name):
-        line = "mkdir -p " + self.treat_strings_for_posix_shell(self.get_destination_dir(dest_id, name))+"\n"
+        dirname=self.get_destination_dir(dest_id, name)
+        line = "mkdir -p " + self.treat_strings_for_posix_shell(dirname)+"\n"
         self.text_widget.config(state=tk.NORMAL)
         self.text_widget.insert(tk.END, line)
         self.text_widget.config(state=tk.DISABLED)
         self.syntax_highlight_lines((4+len(self.script_written_lines), ))
         self.text_widget.see("end")
-        self.script_written_lines.add(line) # This is mainly to get syntax highlighting linue number working in add_file
+        self.script_written_lines.append("",dirname) # This is mainly to get syntax highlighting linue number working in add_file
