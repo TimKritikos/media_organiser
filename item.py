@@ -28,6 +28,7 @@ class Item(tk.Frame):
         self.shift_select_callback = shift_select_callback
         self.select_all_callback = select_all_callback
         self.create_epoch = preloaded_epoch
+        self.icon_check_label = None
 
         if preloaded_image:
             self.photo_obj = ImageTk.PhotoImage(preloaded_image)
@@ -43,16 +44,16 @@ class Item(tk.Frame):
         self.caption = tk.Label(self, text=os.path.basename(self.file_path), wraplength=thumb_size[0], borderwidth=0)
         self.caption.pack()
 
-        icon_size=(thumb_size[0]/8, thumb_size[1]/8)
+        self.icon_size=(thumb_size[0]/8, thumb_size[1]/8)
 
         if item_data[0]["item_type"] == "video":
-            icon=icons.gen_video_icon(icon_size)
+            icon=icons.gen_video_icon(self.icon_size)
         elif item_data[0]["item_type"] == "image":
-            icon=icons.gen_image_icon(icon_size)
+            icon=icons.gen_image_icon(self.icon_size)
         elif item_data[0]["item_type"] == "gnss-track":
-            icon=icons.gen_gnss_icon(icon_size)
+            icon=icons.gen_gnss_icon(self.icon_size)
         else:
-            icon=icons.gen_unknown_icon(icon_size)
+            icon=icons.gen_unknown_icon(self.icon_size)
         self.icon_photo_obj = ImageTk.PhotoImage(icon)
         self.icon_label = tk.Label(self.icons,image=self.icon_photo_obj)
 
@@ -166,16 +167,28 @@ class Item(tk.Frame):
 
     def deselect(self):
         if self.source_properties != constants.source_properties.read_only:
-            for i in (self.image, self.caption, self.icons, self.icon_label, self):
+            to_color_list = [self.image, self.caption, self.icons, self.icon_label, self]
+            if self.icon_check_label != None:
+                to_color_list.append(self.icon_check_label)
+            for i in to_color_list:
                 i.config(bg=self.bg_color)
             if self.file_path in self.selected_items:
                 self.selected_items.remove(self.file_path)
 
     def select(self):
         if self.source_properties != constants.source_properties.read_only:
-            for i in (self.image, self.caption, self.icons, self.icon_label, self):
+            to_color_list = [self.image, self.caption, self.icons, self.icon_label, self]
+            if self.icon_check_label != None:
+                to_color_list.append(self.icon_check_label)
+            for i in to_color_list:
                 i.config(bg=self.select_color)
             self.selected_items.add(self.file_path)
+
+    def add_checkmark(self):
+        checkmark_icon=icons.gen_checkmark_icon(self.icon_size)
+        self.icon_check_obj = ImageTk.PhotoImage(checkmark_icon)
+        self.icon_check_label = tk.Label(self.icons,image=self.icon_check_obj)
+        self.icon_check_label.pack(side=tk.LEFT)
 
     def on_click(self, event):
         self.dragged_over.clear()

@@ -232,6 +232,7 @@ class MediaSelectorApp:
             self.ShellScriptWindow.update_bash_side_channel_write_fd(self.bash_side_channel_write_fd)
         else:
             self.shell_script_error = None
+            self.ItemGrid.checkmark_items(self.ShellScriptWindow.get_items_in_script())
             self.ShellScriptWindow.clear(self.bash_side_channel_write_fd)
             self.ProjectList.clear_projects_queued_in_script()
             self.ProjectList.full_update_list()

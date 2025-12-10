@@ -247,3 +247,8 @@ class ItemGrid(tk.Frame):
                     i.select()
                 else:
                     i.deselect()
+
+    def checkmark_items(self, file_list):
+        for i in self.items:
+            if i.file_path in file_list:
+                i.add_checkmark()

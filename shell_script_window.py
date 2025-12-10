@@ -115,6 +115,12 @@ class ShellScriptWindow(tk.Frame):
                         self.text_widget.tag_add("quote_chars", start, start_)
                         self.text_widget.tag_add("quote_chars", end, end_)
 
+    def get_items_in_script(self):
+        ret = set()
+        for i in self.script_written_lines:
+            ret.add(i[0])
+        return ret
+
     def new_project_callback(self, dest_id, name):
         dirname=self.get_destination_dir(dest_id, name)
         line = "mkdir -p " + self.treat_strings_for_posix_shell(dirname)+"\n"
