@@ -315,7 +315,7 @@ def main():
     parser = argparse.ArgumentParser(description='Select and symlink media from one directory to another')
     parser.add_argument('-i', '--interface',            type=str,                                         required=True,  help='Path to source direcotry interface executable')
     parser.add_argument('-s', '--source',               type=str,  action='append',                       required=True,  help='Path to the source directory of media to get linked. This can be entered multiple times')
-    parser.add_argument('-r', '--read-only-source',     type=str,  action='append',                                       help='Like the -s flag but the items will only be visiable, not selectable for linking. Usualy used for context for the items to be selected')
+    parser.add_argument('-r', '--read-only-source',     type=str,  action='append',                                       help='Like the -s flag but the items will only be visiable, not selectable for linking. Usually used for context for the items to be selected')
     parser.add_argument('-d', '--destination',          type=str,  action='append',                       required=True,  help='Path to the distention directory for the links to stored in. This can be entered multiple times')
     parser.add_argument('-a', '--destination-append',   type=str,                                                         help='Path to be appended to the project directory selected in the destination directory. For example if media needs to be linked in a sub-folder')
     parser.add_argument('-v', '--version',                         action="version",                                      help='print the version of this program and exit successfully',  version=version)

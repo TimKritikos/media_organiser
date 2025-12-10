@@ -138,7 +138,7 @@ class FullScreenItem(tk.Frame):
                             case "MakerNotes:FocusLocation":
                                 True #TODO maybe draw it?
                             case "MakerNotes:BatteryTemperature":
-                                self.metadata["Battery temprature"]="{:.1f}".format(value)+"°C"#TODO make sure it's celsius
+                                self.metadata["Battery temprature"]="{:.1f}".format(value)+"°C"#TODO make sure it's Celsius
                             case "MakerNotes:BatteryLevel":
                                 self.metadata["Battery level"] = str(value)+"%"
                             case "MakerNotes:ShutterCount":

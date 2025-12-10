@@ -129,4 +129,4 @@ class ShellScriptWindow(tk.Frame):
         self.text_widget.config(state=tk.DISABLED)
         self.syntax_highlight_lines((4+len(self.script_written_lines), ))
         self.text_widget.see("end")
-        self.script_written_lines.append(("", dirname)) # This is mainly to get syntax highlighting linue number working in add_file
+        self.script_written_lines.append(("", dirname)) # This is mainly to get syntax highlighting line number working in add_file
