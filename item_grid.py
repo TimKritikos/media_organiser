@@ -23,6 +23,7 @@ class ItemGrid(tk.Frame):
         self.update_progress_bar_callback = update_progress_bar_callback
         self.profile_save_filename = profile_save_filename
         self.tk_root = tk_root
+        self.linked_count = 0
 
         self.rows_per_page = 100 # TODO caluclaute based on item icon size and maximum drawabale area
         self.total_page_count = 1
@@ -252,3 +253,4 @@ class ItemGrid(tk.Frame):
         for i in self.items:
             if i.file_path in file_list:
                 i.add_checkmark()
+                self.linked_count += 1

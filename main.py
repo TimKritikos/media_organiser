@@ -42,7 +42,7 @@ class CountCallbackSet:
 
     def call_callbacks(self):
         if self.callback != None:
-            self.callback(len(self.set))
+            self.callback()
 
     def register_callback(self, callback):
         self.callback = callback
@@ -164,7 +164,7 @@ class MediaSelectorApp:
         root.grid_rowconfigure(0, weight=1)
         root.grid_columnconfigure(0, weight=1)
 
-        self.selected_items.register_callback(self.update_counter)
+        self.selected_items.register_callback(self.update_counters)
         self.selected_items.call_callbacks() # Write initial text on the counter label
 
         self.shell_script_error_line = None
@@ -175,6 +175,7 @@ class MediaSelectorApp:
         else:
             self.progress_bar.grid_forget()
             self.toolbar.grid(row=1, column=0, sticky='we')
+            self.update_counters()
 
     def enter_full_screen(self, path):
         try:
@@ -233,12 +234,16 @@ class MediaSelectorApp:
         else:
             self.shell_script_error = None
             self.ItemGrid.checkmark_items(self.ShellScriptWindow.get_items_in_script())
+            self.update_counters()
             self.ShellScriptWindow.clear(self.bash_side_channel_write_fd)
             self.ProjectList.clear_projects_queued_in_script()
             self.ProjectList.full_update_list()
 
-    def update_counter(self, count):
-        self.item_count_label.config(text="Item count: "+str(count))
+    def update_counters(self):
+        total=len(self.ItemGrid.items)
+        selected=len(self.selected_items)
+        linked=self.ItemGrid.linked_count
+        self.item_count_label.config(text=f"Total: {total} Linked: {linked} Selected: {selected}")
 
     def select_all_callback(self, event=None):
         self.select_all()
