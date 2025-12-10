@@ -17,15 +17,15 @@ import gnss_track_helpers
 import icons
 
 def get_video_length(file):
-    player = mpv.MPV(vo='null',ao='null')
-    player.pause=True
+    player = mpv.MPV(vo='null', ao='null')
+    player.pause = True
     player.play(file)
-    start_time=datetime.now()
+    start_time = datetime.now()
     while player.duration == None:
         if (datetime.now()-start_time).total_seconds() > 15 :
             #Timeout
             break;
-    ret=player.duration
+    ret = player.duration
     player.command('quit')
     del player
     return ret
@@ -103,11 +103,11 @@ class FullScreenItem(tk.Frame):
                             case "EXIF:ISO":
                                 self.metadata["ISO"] = str(value)
                             case "EXIF:FNumber":
-                                self.metadata["Aperature"]="f"+str(value)
+                                self.metadata["Aperature"]="f" + str(value)
                             case "EXIF:Software"|"QuickTime:FirmwareVersion":
                                 self.metadata["Software version"] = value
                             case "EXIF:SubSecTimeOriginal":
-                                self.metadata["Create time"] += "."+str(value)
+                                self.metadata["Create time"] += "." + str(value)
                             case "EXIF:ExposureCompensation"|"QuickTime:ExposureCompensation":
                                 self.metadata["Exposure compensation"] = str(value)
                             case "EXIF:FocalLengthIn35mmFormat":
@@ -164,7 +164,7 @@ class FullScreenItem(tk.Frame):
                             case "QuickTime:CompressorName":
                                 self.metadata["Video Compressor name"] = str(value)
                             case "QuickTime:CompressorID":
-                                codec="unknown ("+value+")"
+                                codec="unknown (" + value + ")"
                                 match value:
                                     case "hvc1":
                                         codec="H.265"
@@ -175,7 +175,7 @@ class FullScreenItem(tk.Frame):
                                 else:
                                     self.metadata["Shutter type:"]="mechanical"
                             case "Composite:GPSPosition":
-                                self.metadata["GPS"]=value
+                                self.metadata["GPS"] = value
             except exiftool.exceptions.ExifToolExecuteError:
                 self.metadata={ "Couldn't get metadata": "" }
 
@@ -190,10 +190,10 @@ class FullScreenItem(tk.Frame):
         self.metadata_canvas.grid_columnconfigure(0, weight=1)
 
         if "GPS" in self.metadata:
-            long,lat = self.metadata["GPS"].split(' ')
+            long, lat = self.metadata["GPS"].split(' ')
             self.map_widget = tkintermapview.TkinterMapView(self.metadata_frame, width=400, height=400, corner_radius=10, use_database_only=input_data["force_offline"], database_path=input_data["map_database"])
-            self.map_widget.set_position(float(long),float(lat))
-            self.map_widget.set_marker(float(long),float(lat))
+            self.map_widget.set_position(float(long), float(lat))
+            self.map_widget.set_marker(float(long), float(lat))
             self.map_widget.set_zoom(15)
             self.map_widget.grid(row=1, column=0, sticky='nswe')
             self.map_widget.grid_rowconfigure(1, weight=1)
@@ -234,7 +234,7 @@ class FullScreenItem(tk.Frame):
             try:
                 self.pil_image_jpeg = Image.open(self.best_file_path).convert("RGB")
             except Image.UnidentifiedImageError:
-                self.pil_image_jpeg = icons.gen_corrupted_file_icon((1000,1000))
+                self.pil_image_jpeg = icons.gen_corrupted_file_icon((1000, 1000))
 
             if self.rawpy_object != None:
                 self.exposure_slider = tk.Scale(self.metadata_frame, from_=-3, to=3, resolution=0.1, orient='horizontal', label="Exposure", command=self.update_exposure)
@@ -262,27 +262,27 @@ class FullScreenItem(tk.Frame):
             self.attach_binds(self.video_frame)
             self.attach_binds(self.control_frame)
 
-            self.video_parts_matching=[]
+            self.video_parts_matching = []
 
             related = media_interface.load_interface_data(input_data, 0, 'get-related', arg=file_path)
 
-            start=0
-            end=0
-            for part_id_to_process in range(1,self.best_file["part_count"]+1):
+            start = 0
+            end = 0
+            for part_id_to_process in range(1, self.best_file["part_count"]+1):
                 for i in related["file_list"]:
                     if i["part_num"] == part_id_to_process and i["file_type"] == 'video':
-                        file=i
+                        file = i
                         break;
-                length=get_video_length(file["file_path"])
-                start=end
-                end=start+length
-                self.video_parts_matching.append((file["file_path"],start,end))
+                length = get_video_length(file["file_path"])
+                start = end
+                end = start + length
+                self.video_parts_matching.append((file["file_path"], start, end))
 
             window_id = self.video_frame.winfo_id()
             self.mpv = mpv.MPV( wid=window_id, vo='x11', keep_open=True)
 
             self.mpv.pause = True
-            self.playing_file=self.video_parts_matching[0]
+            self.playing_file = self.video_parts_matching[0]
             self.video = self.mpv.play(self.playing_file[0])
 
             self.mpv.observe_property('time-pos', self.video_time_callback)
@@ -301,17 +301,17 @@ class FullScreenItem(tk.Frame):
             self.main_map.set_path([(point[0], point[1]) for point in gnss_data["points"]])
 
         else:
-            self.pil_image = icons.gen_corrupted_file_icon((1000,1000))
+            self.pil_image = icons.gen_corrupted_file_icon((1000, 1000))
 
     def on_end_file(self, name, value):
-        get_next=False
+        get_next = False
         if value is True:
             for i in self.video_parts_matching:
-                if get_next==True:
+                if get_next == True:
                     self.switch_video_files_mpv(i)
                     break;
                 if i[0] == self.playing_file[0]:
-                    get_next=True
+                    get_next = True
 
 
     def video_time_callback(self, name, value):
@@ -320,18 +320,18 @@ class FullScreenItem(tk.Frame):
             self.scale.set(((value+self.playing_file[1])*100)/scale_time_length)
 
     def switch_video_files_mpv(self, new_file):
-        self.playing_file=new_file
+        self.playing_file = new_file
         self.video = self.mpv.play(self.playing_file[0])
         #Wait for it to load the new video
-        start_time=datetime.now()
+        start_time = datetime.now()
         while ( self.mpv.time_pos == None ): #or self.mpv.time_pos < .2):
             if (datetime.now()-start_time).total_seconds() > 15 :
                 #Timeout
                 break;
 
     def video_scale_click(self, event):
-        orig_pause=self.mpv.pause
-        self.mpv.pause=True
+        orig_pause = self.mpv.pause
+        self.mpv.pause = True
         scale_pixel_length = self.scale.winfo_width()
         scale_time_length = self.video_parts_matching[-1][2]
         self.scale.set((event.x/scale_pixel_length)*100)
@@ -339,13 +339,13 @@ class FullScreenItem(tk.Frame):
         new_time = (event.x/scale_pixel_length)*scale_time_length
         for i in self.video_parts_matching:
             if i[2] > new_time:
-                file_to_play=i
+                file_to_play = i
                 break;
-        if self.playing_file[0]!=file_to_play[0]:
+        if self.playing_file[0] != file_to_play[0]:
             self.switch_video_files_mpv(file_to_play)
-        relative_time=new_time-self.playing_file[1];
-        self.mpv.time_pos=relative_time
-        self.mpv.pause=orig_pause
+        relative_time = new_time-self.playing_file[1];
+        self.mpv.time_pos = relative_time
+        self.mpv.pause = orig_pause
 
     def video_play_pause(self):
         if self.mpv.pause == False:

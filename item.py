@@ -47,19 +47,19 @@ class Item(tk.Frame):
         self.icon_size=(thumb_size[0]/8, thumb_size[1]/8)
 
         if item_data[0]["item_type"] == "video":
-            icon=icons.gen_video_icon(self.icon_size)
+            icon = icons.gen_video_icon(self.icon_size)
         elif item_data[0]["item_type"] == "image":
-            icon=icons.gen_image_icon(self.icon_size)
+            icon = icons.gen_image_icon(self.icon_size)
         elif item_data[0]["item_type"] == "gnss-track":
-            icon=icons.gen_gnss_icon(self.icon_size)
+            icon = icons.gen_gnss_icon(self.icon_size)
         else:
-            icon=icons.gen_unknown_icon(self.icon_size)
-        self.icon_photo_obj = ImageTk.PhotoImage(icon)
-        self.icon_label = tk.Label(self.icons,image=self.icon_photo_obj)
+            icon = icons.gen_unknown_icon(self.icon_size)
 
+        self.icon_photo_obj = ImageTk.PhotoImage(icon)
+        self.icon_label = tk.Label(self.icons, image=self.icon_photo_obj)
         self.icon_label.pack(side=tk.LEFT)
 
-        for i in (self.image,self.icons, self.caption, self.icon_label, self):
+        for i in (self.image, self.icons, self.caption, self.icon_label, self):
             i.bind("<Button-1>", self.on_click)
             i.bind("<B1-Motion>", self.on_drag)
             i.bind("<Enter>", enter_callback)
@@ -95,7 +95,7 @@ class Item(tk.Frame):
                 img = Image.open(file_path).convert("RGB")
                 orig_width, orig_height = img.size
                 target_height = int(orig_height*(thumb_size[0]/orig_width))
-                img = img.resize((thumb_size[0],target_height))
+                img = img.resize((thumb_size[0], target_height))
             except Exception:
                 img = icons.gen_corrupted_file_icon(thumb_size)
 
@@ -119,12 +119,12 @@ class Item(tk.Frame):
             del player
             orig_width, orig_height = img.size
             target_height = int(orig_height*(thumb_size[0]/orig_width))
-            img = img.resize((thumb_size[0],target_height))
+            img = img.resize((thumb_size[0], target_height))
         elif item_data[0]["file_type"] == "gnss-track":
             img, create_epoch = gnss_track_helpers.gnss_thumbnail_and_timestamp(file_path, force_offline=input_data["force_offline"], map_database=input_data["map_database"])
             orig_width, orig_height = img.size
             target_height = int(orig_height*(thumb_size[0]/orig_width))
-            img = img.resize((thumb_size[0],target_height))
+            img = img.resize((thumb_size[0], target_height))
         else:
             img = icons.gen_corrupted_file_icon(thumb_size)
 
@@ -185,9 +185,9 @@ class Item(tk.Frame):
             self.selected_items.add(self.file_path)
 
     def add_checkmark(self):
-        checkmark_icon=icons.gen_checkmark_icon(self.icon_size)
+        checkmark_icon = icons.gen_checkmark_icon(self.icon_size)
         self.icon_check_obj = ImageTk.PhotoImage(checkmark_icon)
-        self.icon_check_label = tk.Label(self.icons,image=self.icon_check_obj)
+        self.icon_check_label = tk.Label(self.icons, image=self.icon_check_obj)
         self.icon_check_label.pack(side=tk.LEFT)
 
     def on_click(self, event):

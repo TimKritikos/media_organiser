@@ -30,7 +30,7 @@ class  ProjectList(tk.Frame):
         self.searchbox.pack(fill=tk.X)
         self.searchbox_unfocused()
 
-        self.notebook=ttk.Notebook(self)
+        self.notebook = ttk.Notebook(self)
 
         self.dir_listboxes = []
         for index, destination in enumerate(destinations):
@@ -57,7 +57,7 @@ class  ProjectList(tk.Frame):
 
     def full_update_list(self):
         self.dirs = []
-        for index,dir in enumerate(self.destinations):
+        for index, dir in enumerate(self.destinations):
             self.dirs.append([new_item for new_item in os.listdir(self.destinations[index]) if os.path.isdir(os.path.join(self.destinations[index], new_item))])
         self.update_list()
 
@@ -98,7 +98,7 @@ class  ProjectList(tk.Frame):
         return self.notebook.index(self.notebook.select())
 
     def new_project_callback(self, name):
-        current_tab=self.get_visible_tab()
+        current_tab = self.get_visible_tab()
         self.dirs_in_script[current_tab].append(name)
         self.update_list()
         self.dir_listboxes[current_tab].see(self.listbox_items[current_tab].index(name))

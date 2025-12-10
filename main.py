@@ -53,10 +53,10 @@ class MediaSelectorApp:
         self.input_data = {}
 
         if not os.path.isfile(unsanitised_input_data["interface"]):
-            raise CmdLineError("Following provided interface file doesn't exist or isn't a file: '"+unsanitised_input_data["interface"]+"'")
+            raise CmdLineError("Following provided interface file doesn't exist or isn't a file: '" + unsanitised_input_data["interface"] + "'")
         if not os.access(unsanitised_input_data["interface"], os.X_OK):
-            raise CmdLineError("Following provided interface file isn't executable: '"+unsanitised_input_data["interface"]+"'")
-        self.input_data["interface"]=os.path.normpath(unsanitised_input_data["interface"])
+            raise CmdLineError("Following provided interface file isn't executable: '" + unsanitised_input_data["interface"] + "'")
+        self.input_data["interface"] = os.path.normpath(unsanitised_input_data["interface"])
 
         if unsanitised_input_data["map_database"] != None:
             self.input_data["map_database"] = os.path.normpath(unsanitised_input_data["map_database"])
@@ -64,24 +64,24 @@ class MediaSelectorApp:
             self.input_data["map_database"] = None
         self.input_data["force_offline"] = unsanitised_input_data["force_offline"]
 
-        self.input_data["sources"]=[]
+        self.input_data["sources"] = []
         for source in unsanitised_input_data["sources"]:
             if not os.path.isdir(source):
-                raise CmdLineError("Following provided source directory doesn't exist: '"+source+"'")
+                raise CmdLineError("Following provided source directory doesn't exist: '" + source + "'")
             self.input_data["sources"].append((os.path.normpath(source), constants.source_properties.normal))
         if "read_only_source" in unsanitised_input_data:
             for source in unsanitised_input_data["read_only_source"]:
                 if not os.path.isdir(source):
-                    raise CmdLineError("Following provided source directory doesn't exist: '"+source+"'")
+                    raise CmdLineError("Following provided source directory doesn't exist: '" + source + "'")
                 self.input_data["sources"].append((os.path.normpath(source), constants.source_properties.read_only))
 
-        self.input_data["destinations"]=[]
+        self.input_data["destinations"] = []
         for destination in unsanitised_input_data["destinations"]:
             if not os.path.isdir(destination):
-                raise CmdLineError("Following provided destination directory doesn't exist: '"+destination+"'")
+                raise CmdLineError("Following provided destination directory doesn't exist: '" + destination + "'")
             self.input_data["destinations"].append(os.path.normpath(destination))
 
-        self.input_data["destinations_append"]=unsanitised_input_data["destinations_append"]
+        self.input_data["destinations_append"] = unsanitised_input_data["destinations_append"]
 
         self.selected_items = CountCallbackSet()  # set of selected file paths
 
@@ -240,9 +240,9 @@ class MediaSelectorApp:
             self.ProjectList.full_update_list()
 
     def update_counters(self):
-        total=len(self.ItemGrid.items)
-        selected=len(self.selected_items)
-        linked=self.ItemGrid.linked_count
+        total = len(self.ItemGrid.items)
+        selected = len(self.selected_items)
+        linked = self.ItemGrid.linked_count
         self.item_count_label.config(text=f"Total: {total} Linked: {linked} Selected: {selected}")
 
     def select_all_callback(self, event=None):
@@ -281,15 +281,15 @@ class MediaSelectorApp:
             messagebox.showinfo("Selection", "No items selected.")
             return
 
-        linked_already=[]
-        destination_dir=self.ShellScriptWindow.get_destination_dir(selected_tab,selected_project);
+        linked_already = []
+        destination_dir = self.ShellScriptWindow.get_destination_dir(selected_tab, selected_project);
         if not self.ProjectList.query_project_queued_in_script(selected_tab, selected_project) :
             for dirpath, dirnames, filenames in os.walk(destination_dir, followlinks=False):
                 for filename in filenames:
                     full_path = os.path.join(dirpath, filename)
                     if os.path.islink(full_path):
                         link_destination = os.path.realpath(full_path)
-                        linked_already.append((link_destination,filename,dirpath))
+                        linked_already.append((link_destination, filename, dirpath))
         try:
             for file_id in self.selected_items:
                 for file_to_link in media_interface.load_interface_data(self.input_data, 0, 'get-related', arg=file_id)["file_list"]:
@@ -327,9 +327,9 @@ def main():
     args = parser.parse_args()
 
     if args.jobs == None:
-        jobs=multiprocessing.cpu_count()
+        jobs = multiprocessing.cpu_count()
     else:
-        jobs=args.jobs
+        jobs = args.jobs
 
     input_data = {
         "interface": args.interface,
@@ -341,7 +341,7 @@ def main():
     }
 
     if input_data["force_offline"] == None:
-        input_data["force_offline"]=False
+        input_data["force_offline"] = False
 
     if args.read_only_source != None:
         input_data["read_only_source"]= args.read_only_source

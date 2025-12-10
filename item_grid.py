@@ -43,16 +43,18 @@ class ItemGrid(tk.Frame):
         self.next_button.pack(side="left", padx=5)
         # ----------------------------
 
+        # -------- Grid Frame --------
         self.canvas = tk.Canvas(self, highlightthickness=0)
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.item_grid = tk.Frame(self.canvas)
-
         self.canvas_window = self.canvas.create_window((0, 0), window=self.item_grid, anchor="nw")
+
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
         self.canvas.grid   (row=1, column=0, sticky='nswe')
         self.scrollbar.grid(row=0, column=1, sticky='nse', rowspan=2)
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
+        # ----------------------------
 
         self.item_grid.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", lambda x: self.canvas.after_idle(self.update_item_layout))
@@ -71,11 +73,11 @@ class ItemGrid(tk.Frame):
             self.profiler = cProfile.Profile()
             self.profiler.enable()
 
-        self.item_list=[]
+        self.item_list = []
         for index, data in enumerate(self.input_data["sources"]):
             interface_data = load_interface_data(self.input_data, index, 'list-thumbnails')
             for item in interface_data["file_list"]:
-                self.item_list.append((item,data[1]))
+                self.item_list.append((item, data[1]))
         random.shuffle(self.item_list)
 
         self.after(0, self.check_queue)
@@ -92,7 +94,7 @@ class ItemGrid(tk.Frame):
             else:
                 self.next_button.config(state=tk.NORMAL)
 
-    def switch_page(self,num):
+    def switch_page(self, num):
         self.current_page += num
         self.update_page_button_state()
         self.update_item_layout( force_regrid=True )
@@ -177,7 +179,7 @@ class ItemGrid(tk.Frame):
         page = ((( idx // items_per_row )) // self.rows_per_page)+1
         row = ( idx // items_per_row ) % self.rows_per_page
         col = idx % items_per_row
-        return (page,row,col)
+        return (page, row, col)
 
     def update_page_text(self):
         self.page_label.config(text=f"Page {self.current_page} of {self.total_page_count}")
@@ -204,7 +206,7 @@ class ItemGrid(tk.Frame):
                 item.grid_forget()
 
             for idx, item in enumerate(self.items):
-                page,row,col = self.calculate_item_location(idx,items_per_row)
+                page, row, col = self.calculate_item_location(idx, items_per_row)
                 if page == self.current_page:
                     item.grid(row=row, column=col, padx=self.item_padding, pady=self.item_padding, sticky="nsew")
 
@@ -221,7 +223,7 @@ class ItemGrid(tk.Frame):
         if self.update_item_layout() == False:
             idx = len(self.items)-1
             item = self.items[-1]
-            max_pages_now, row, col = self.calculate_item_location(idx,items_per_row)
+            max_pages_now, row, col = self.calculate_item_location(idx, items_per_row)
 
             if max_pages_now > self.total_page_count:
                 self.update_item_layout(force_regrid=True)

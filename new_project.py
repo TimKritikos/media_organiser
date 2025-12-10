@@ -69,7 +69,7 @@ class NewProject(tk.Toplevel):
 
     def write_to_script_exec(self):
         text = self.text.get("1.0", "1.end")
-        active_tab=self.ProjectListCallback(text)
+        active_tab = self.ProjectListCallback(text)
         self.ShellScriptWindowCallback(active_tab, text)
         self.destroy()
 

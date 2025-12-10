@@ -51,7 +51,7 @@ def download_tiles(min_x, max_x, min_y, max_y, zoom, force_offline, map_database
     tiles = {}
     for x in range(min_x, max_x + 1):
         for y in range(min_y, max_y + 1):
-            tile=None
+            tile = None
             if force_offline == False:
                 url = f"https://tile.openstreetmap.org/{zoom}/{x}/{y}.png"
                 r = requests.get(url, headers=HEADERS)
@@ -73,9 +73,9 @@ def download_tiles(min_x, max_x, min_y, max_y, zoom, force_offline, map_database
                 except sqlite3.OperationalError:
                         pass
 
-            if tile==None:
-                tile=Image.new("RGB", (256,256), (0x99,0xff,0x99))
-            tiles[(x, y)]=tile
+            if tile == None:
+                tile = Image.new("RGB", (256, 256), (0x99, 0xff, 0x99))
+            tiles[(x, y)] = tile
     return tiles
 
 def stitch_tiles(tiles, min_x, max_x, min_y, max_y):
@@ -105,7 +105,7 @@ def calculate_zoom(bounds, max_tiles_x=2, max_tiles_y=2, max_zoom=19, min_zoom=2
 def gnss_thumbnail_and_timestamp(gpx_file, max_tiles=2, max_zoom=19, force_offline=False, map_database=None):
     data = get_gpx_data(gpx_file)
 
-    zoom = calculate_zoom(data,max_tiles_x=max_tiles,max_tiles_y=max_tiles,max_zoom=max_zoom)
+    zoom = calculate_zoom(data, max_tiles_x=max_tiles, max_tiles_y=max_tiles, max_zoom=max_zoom)
 
     # determine tile range
     min_x, min_y = deg2tile(data["max_lat"], data["min_lon"], zoom)
