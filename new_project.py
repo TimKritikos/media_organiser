@@ -3,15 +3,16 @@ from tkinter import ttk
 
 import spell_check
 
-class NewProject(tk.Toplevel):
-    def __init__(self, root, ShellScriptWindowCallback, ProjectListCallback ):
+# Naming a new project used to happen in a Toplevel of its own. It is a panel inside
+# the project list instead, so that confirming a name no longer creates and destroys a
+# window in the middle of handling the click.
+class NewProject(tk.Frame):
+    def __init__(self, root, ShellScriptWindowCallback, ProjectListCallback, ClosePanelCallback ):
         super().__init__(root)
-        self.title("Create project")
-        self.geometry("400x70")
-        self.attributes('-type', 'dialog')
 
         self.ProjectListCallback = ProjectListCallback
         self.ShellScriptWindowCallback = ShellScriptWindowCallback
+        self.ClosePanelCallback = ClosePanelCallback
 
         self.entry_frame = tk.Frame(self)
         self.entry_label = tk.Label(self.entry_frame, text="Name:")
@@ -21,6 +22,7 @@ class NewProject(tk.Toplevel):
         self.text.config(height=1)
         self.text.config(wrap='none')
         self.text.bind("<Return>", self.return_handle)
+        self.text.bind("<Escape>", self.cancel)
         self.text.bind('<Control-KeyRelease-a>', self.select_all)
         self.text.bind('<Control-KeyRelease-A>', self.select_all)
 
@@ -46,6 +48,12 @@ class NewProject(tk.Toplevel):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
+    # The panel is reused rather than rebuilt for each project, so everything the
+    # previous project left behind has to be cleared out before it is shown again
+    def reset(self):
+        self.text.delete('1.0', tk.END)
+        self.spell_check_button.configure(style="TButton")
+        self.space_to_underscore.configure(style="TButton")
         self.text.focus_set()
 
     def return_handle(self, event):
@@ -54,6 +62,10 @@ class NewProject(tk.Toplevel):
         if event.keysym == "Tab":  # move focus instead of inserting tab
             event.widget.tk_focusNext().focus()
             return "break"
+
+    def cancel(self, event=None):
+        self.ClosePanelCallback()
+        return "break"
 
     def spell_check_exec(self):
         if spell_check.spell_check(self) == 0:
@@ -71,7 +83,7 @@ class NewProject(tk.Toplevel):
         text = self.text.get("1.0", "1.end")
         active_tab = self.ProjectListCallback(text)
         self.ShellScriptWindowCallback(active_tab, text)
-        self.destroy()
+        self.ClosePanelCallback()
 
     def select_all(self, event=None):
         self.text.tag_add(tk.SEL, "1.0", tk.END)

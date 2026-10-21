@@ -11,7 +11,6 @@ class  ProjectList(tk.Frame):
 
         self.dirs_in_script = []
         self.destinations = destinations
-        self.ShellScriptNewProjectCallback = ShellScriptNewProjectCallback
 
         self.toolbox = tk.Frame(self)
         self.case_insensitive_button = ttk.Button(self.toolbox, text="Case insensitive", command=self.case_insensitive_insert)
@@ -29,6 +28,10 @@ class  ProjectList(tk.Frame):
         self.searchbox.bind('<Control-KeyRelease-A>', self.select_all)
         self.searchbox.pack(fill=tk.X)
         self.searchbox_unfocused()
+
+        # Lives in the main window and is packed into place only while a project is
+        # being named, see new_project()
+        self.NewProject = new_project.NewProject(self, ShellScriptNewProjectCallback, self.new_project_callback, self.hide_new_project)
 
         self.notebook = ttk.Notebook(self)
 
@@ -92,7 +95,18 @@ class  ProjectList(tk.Frame):
                     dir_listbox.itemconfig(tk.END, {'bg': 'yellow'})
 
     def new_project(self, event=None):
-        self.NewProject = new_project.NewProject(self, self.ShellScriptNewProjectCallback, self.new_project_callback)
+        # An unpacked widget has no geometry manager. winfo_ismapped() is no good here
+        # because it only turns true once Tk gets round to drawing the panel
+        new_project_panel_is_open = self.NewProject.winfo_manager() != ''
+        if new_project_panel_is_open:
+            self.hide_new_project()
+        else:
+            self.NewProject.pack(fill=tk.X, before=self.notebook)
+            self.NewProject.reset()
+
+    def hide_new_project(self):
+        self.NewProject.pack_forget()
+        self.dir_listboxes[self.get_visible_tab()].focus_set()
 
     def get_visible_tab(self):
         return self.notebook.index(self.notebook.select())
